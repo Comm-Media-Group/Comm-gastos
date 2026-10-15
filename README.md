@@ -37,6 +37,8 @@ instead of typing and the approver is copied automatically). Upload, then send t
    (the full report goes out again, subject starting "Reenvío:"). The one-tap sender wakes up when you open a report and retries once if
    Google's confirmation is unreadable; a retry can never send twice (same report id). If it still cannot be confirmed the app asks
    "did it arrive?" and shows the technical reason on screen.
+   Every send is also listed under **Informes > Envíos anteriores**: tap one to see when/where it went and the expenses it contained
+   (until the report is marked Reembolsado, after which only the summary remains).
 5. Once finance has paid the report, open it and tap **Reembolsado**: the *sent* expenses and their receipt photos are deleted from the
    phone (unsent expenses are never touched) and trip reports disappear once empty.
 

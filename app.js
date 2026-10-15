@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const CFG = window.CMG_CONFIG || {};
-const VERSION = '1.7.0';
+const VERSION = '1.8.0';
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -29,6 +29,8 @@ const TXT = {
     relayBad: 'El servicio de envío contestó algo inesperado. Es posible que el correo SÍ se haya enviado: revisa la bandeja de destino antes de reintentar.',
     relayUnsure: 'No hemos podido confirmar el envío. Puede que el correo SÍ haya llegado: revisa la bandeja de destino.',
     relayUnsureAsk: to => 'No hemos podido confirmar el envío a ' + to + '. ¿Ha llegado el correo?\n\nAceptar = marcar como enviado.\nCancelar = dejarlo pendiente (puedes volver a pulsar «Enviar ahora»: no se duplicará).',
+    monthsOffWarn: m => 'Sin incluir en este envío: ' + m + '. Toca el mes para incluirlo.', mRelay: 'Envío directo', mShare: 'Compartir', mDownload: 'Descarga + correo', mManual: 'Marcado a mano', sentWhen: 'Enviado el', method: 'Método',
+    batchReimbursed: 'Este informe ya está reembolsado: los gastos y justificantes se borraron del teléfono.', batchGone: 'Estos gastos ya no están en el teléfono (se movieron o se borraron).', openReport: 'Abrir informe', close: 'Cerrar',
     markSentLink: 'Ya lo envié: marcar como enviado', markManualAsk: '¿Seguro que este informe ya se envió y llegó? Se marcará como enviado sin enviar nada.',
     saveNext: n => 'Guardar y siguiente (' + n + ')', viewFile: 'Ver justificante', viewHint: 'Toca una foto para verla en grande', zoomHint: 'Toca la imagen para ampliar', noFile: 'No se encuentra el archivo',
     draftsT: 'Por completar', draftsHint: 'Fotos guardadas sin datos. Ábrelas para añadir importe y categoría; no se envían hasta completarlas.',
@@ -104,6 +106,8 @@ const TXT = {
     relayBad: 'The sending service answered something unexpected. The email MAY have been sent: check the destination inbox before retrying.',
     relayUnsure: 'We could not confirm the sending. The email may well have arrived: check the destination inbox.',
     relayUnsureAsk: to => 'We could not confirm the send to ' + to + '. Did the email arrive?\n\nOK = mark as sent.\nCancel = leave pending (you can tap “Send now” again: it will not be duplicated).',
+    monthsOffWarn: m => 'Not included in this send: ' + m + '. Tap the month to include it.', mRelay: 'Direct send', mShare: 'Share sheet', mDownload: 'Download + email', mManual: 'Marked by hand', sentWhen: 'Sent on', method: 'Method',
+    batchReimbursed: 'This report is reimbursed: the expenses and receipts were deleted from the phone.', batchGone: 'These expenses are no longer on the phone (moved or deleted).', openReport: 'Open report', close: 'Close',
     markSentLink: 'Already sent: mark as sent', markManualAsk: 'Are you sure this report was already sent and arrived? It will be marked as sent without sending anything.',
     saveNext: n => 'Save & next (' + n + ')', viewFile: 'View receipt', viewHint: 'Tap a photo to view it full screen', zoomHint: 'Tap the image to zoom', noFile: 'File not found',
     draftsT: 'To complete', draftsHint: 'Photos saved without details. Open them to add amount and category; they are not sent until completed.',
@@ -183,7 +187,7 @@ function normalizeState(s) {
 normalizeState(st);
 let flags = lsGet(LS_FLAGS, {});
 let rev = 0;
-const ui = { page: 'home', status: 'pending', rep: 'all', report: null, rdraft: null, selMode: false, picked: new Set(), moveTo: null, moveAfterCreate: false, months: null, draft: null, pkg: null, pkgs: {}, sendError: null, busy: false };
+const ui = { page: 'home', status: 'pending', rep: 'all', report: null, rdraft: null, selMode: false, picked: new Set(), moveTo: null, moveAfterCreate: false, monthsOff: new Set(), draft: null, pkg: null, pkgs: {}, sendError: null, busy: false };
 const L = () => TXT[settings.lang] || TXT.es;
 const t = (k, ...a) => { const v = L()[k]; return typeof v === 'function' ? v(...a) : (v == null ? k : v); };
 const catLabel = (k, lang) => (TXT[lang || settings.lang].cats[k] || k);
@@ -404,7 +408,7 @@ const pendingMonths = rid => {
   pendingOf(rid).forEach(e => { const k = e.date.slice(0, 7); const o = m.get(k) || { k, n: 0, total: 0 }; o.n++; o.total += e.amount; m.set(k, o); });
   return [...m.values()].sort((a, b) => a.k.localeCompare(b.k));
 };
-const selMonths = rid => { const all = pendingMonths(rid).map(x => x.k); if (!ui.months) return new Set(all); return new Set(all.filter(k => ui.months.has(k))); };
+const selMonths = rid => new Set(pendingMonths(rid).map(x => x.k).filter(k => !ui.monthsOff.has(k)));   // everything is included unless the person switched that month off
 const selected = rid => { const s = selMonths(rid); return pendingOf(rid).filter(e => s.has(e.date.slice(0, 7))).sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id); };
 const hasShare = () => { try { return !!(navigator.canShare && navigator.canShare({ files: [new File(['x'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } };
 const domOK = a => { const ds = (CFG.relayDomains || []).map(x => String(x).toLowerCase()); return !ds.length || ds.includes(String(a || '').split('@').pop().trim().toLowerCase()); };
@@ -462,6 +466,7 @@ function pageReport(id) {
       <dt>${esc(t('approverL'))}</dt><dd>${esc(settings.approver || t('notSet'))}</dd>
     </dl></div>
     ${sec(t('sec_period'))}
+    ${months.some(x => !sm.has(x.k)) ? `<p class="hint" style="margin:-4px 2px 10px;color:var(--warn)">${esc(t('monthsOffWarn', months.filter(x => !sm.has(x.k)).map(x => { const { y, m } = ymd(x.k + '-01'); return monthName(y, m); }).join(', ')))}</p>` : ''}
     <div class="chips">${months.map(x => { const { y, m } = ymd(x.k + '-01'); return `<button class="chip ${sm.has(x.k) ? 'on' : ''}" data-act="month" data-v="${x.k}">${esc(monthName(y, m))} · ${x.n}</button>`; }).join('')}</div>
     ${sec(t('sec_content'))}
     <div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>${esc(t('dateC'))}</th><th>${esc(t('conceptC'))}</th><th class="r">€</th></tr></thead><tbody>
@@ -497,8 +502,8 @@ function pageReport(id) {
 
 function historyHtml() {
   if (!st.batches.length) return '';
-  return `<div class="sec"><b>02</b> ${esc(t('history'))}</div><div class="card">${[...st.batches].reverse().slice(0, 8).map(b =>
-    `<div class="row"><span class="ico">${svg(UI_ICON.mail)}</span><span class="row-main"><span class="row-t" style="display:block">${esc((b.reportName && !b.reportName.toLowerCase().includes(b.period.toLowerCase()) ? b.reportName + ' · ' + b.period : (b.reportName || b.period)) + (b.resend ? ' · ' + t('resendTag') : ''))}</span><span class="row-s" style="display:block">${esc(t('hist', new Date(b.at).toLocaleDateString(settings.lang === 'en' ? 'en-GB' : 'es-ES'), b.count, eur(b.total)))}</span></span>${b.expensedAt ? `<span class="tag ok">${esc(t('reimbursed'))}</span>` : ''}</div>`).join('')}</div>`;
+  return `<div class="sec"><b>02</b> ${esc(t('history'))}</div><div class="card">${[...st.batches].reverse().slice(0, 15).map(b =>
+    `<button class="row" data-act="open-batch" data-id="${esc(b.id)}"><span class="ico">${svg(UI_ICON.mail)}</span><span class="row-main"><span class="row-t" style="display:block">${esc((b.reportName && !b.reportName.toLowerCase().includes(b.period.toLowerCase()) ? b.reportName + ' · ' + b.period : (b.reportName || b.period)) + (b.resend ? ' · ' + t('resendTag') : ''))}</span><span class="row-s" style="display:block">${esc(t('hist', new Date(b.at).toLocaleDateString(settings.lang === 'en' ? 'en-GB' : 'es-ES'), b.count, eur(b.total)))}</span></span>${b.expensedAt ? `<span class="tag ok">${esc(t('reimbursed'))}</span>` : '<span class="muted">›</span>'}</button>`).join('')}</div>`;
 }
 
 function pageSettings() {
@@ -559,11 +564,12 @@ function render() {
   m.scrollTop = keep;
   hydrateThumbs();
 }
-function go(p) { ui.page = p; ui.report = null; ui.sendError = null; ui.months = null; $('#main').scrollTop = 0; render(); }
-function openReportPage(id) { ui.page = 'reports'; ui.sendError = null; ui.report = id; ui.months = null; $('#main').scrollTop = 0; render(); }
+function go(p) { ui.page = p; ui.report = null; ui.sendError = null; ui.monthsOff = new Set(); $('#main').scrollTop = 0; render(); }
+function openReportPage(id) { ui.page = 'reports'; ui.sendError = null; ui.report = id; ui.monthsOff = new Set(); $('#main').scrollTop = 0; render(); }
 
 /* ───────────── add / edit sheet ───────────── */
 function openAdd(cat, id) {
+  closeBatch();
   const e = id ? exp(id) : null;
   ui.draft = e ? { id: e.id, cat: e.cat, date: e.date, amount: e.amount ? String(e.amount).replace('.', ',') : '', concept: e.concept || '', client: e.client || '', company: e.company || '', report: e.report,
       files: filesOf(e).map(f => ({ ...f })), removed: [], status: e.status, sentAt: e.sentAt, sticky: !!e.draft, wasDraft: !!e.draft }
@@ -668,6 +674,26 @@ async function saveExpense(asDraft, goNext) {
   if (goNext) { const nx = draftsList()[0]; if (nx) setTimeout(() => openAdd(null, nx.id), 380); }
 }
 
+/* ───────────── sent-report details (opened from the history list) ───────────── */
+function openBatch(id) {
+  const b = st.batches.find(x => x.id === id); if (!b) return;
+  const exps = (b.resend ? sentOf(b.report) : st.expenses.filter(e => e.batch === b.id)).sort((x, y) => x.date.localeCompare(y.date) || x.id - y.id);
+  const rp = st.reports.find(x => x.id === b.report);
+  const methodLbl = { relay: t('mRelay'), gmail: 'Gmail', share: t('mShare'), download: t('mDownload'), manual: t('mManual') }[b.method] || b.method;
+  const when = new Date(b.at).toLocaleString(settings.lang === 'en' ? 'en-GB' : 'es-ES', { dateStyle: 'medium', timeStyle: 'short' });
+  $('#batch-title').textContent = (b.reportName || t('general')) + (b.resend ? ' · ' + t('resendTag') : '');
+  $('#batch-body').innerHTML = `<dl class="kv" style="padding:0 0 12px">
+      <dt>${esc(t('sec_period'))}</dt><dd>${esc(b.period)}</dd>
+      <dt>${esc(t('sentWhen'))}</dt><dd>${esc(when)}</dd>
+      <dt>${esc(t('to'))}</dt><dd>${esc(b.to || '—')}</dd>
+      <dt>${esc(t('method'))}</dt><dd>${esc(methodLbl)}</dd>
+      <dt>${esc(t('total'))}</dt><dd>${esc(eur(b.total))} · ${b.count} ${esc(t('nExp').toLowerCase())}</dd></dl>
+    ${exps.length ? `<div class="card">${exps.map(expRow).join('')}</div>` : `<div class="notice">${esc(b.expensedAt ? t('batchReimbursed') : t('batchGone'))}</div>`}`;
+  $('#batch-foot').innerHTML = rp ? `<button class="btn" data-act="batch-open" data-id="${esc(rp.id)}">${esc(t('openReport'))}</button>` : `<button class="btn ghost" data-act="close-batch">${esc(t('close'))}</button>`;
+  $('#ov-batch').classList.add('open'); $('#sh-batch').classList.add('open'); $('#batch-body').scrollTop = 0;
+}
+function closeBatch() { $('#ov-batch').classList.remove('open'); $('#sh-batch').classList.remove('open'); }
+
 /* ───────────── report (trip / project) sheet ───────────── */
 function monthSuggestions() {
   // months of the expenses being moved (if any), else this month and last month
@@ -702,7 +728,7 @@ function saveReport() {
   if (d.id) Object.assign(rep(d.id), data);
   else { const r = Object.assign({ id: 'r' + (st.nextRep++), createdAt: Date.now() }, data); st.reports.push(r);
     if (ui.moveAfterCreate && ui.picked.size) { st.expenses.forEach(e => { if (ui.picked.has(e.id)) e.report = r.id; }); ui.selMode = false; ui.picked = new Set(); }
-    ui.moveAfterCreate = false; ui.page = 'reports'; ui.report = r.id; ui.months = null; }
+    ui.moveAfterCreate = false; ui.page = 'reports'; ui.report = r.id; ui.monthsOff = new Set(); }
   persist(); closeRep(); render(); toast(t('repSaved'));
 }
 async function markExpensed() {
@@ -1036,8 +1062,11 @@ document.addEventListener('click', async ev => {
     case 'close-add': return closeAdd();
     case 'status': ui.status = el.dataset.v; return render();
     case 'rep': ui.rep = el.dataset.v; return render();
-    case 'month': { const all = pendingMonths(ui.report).map(x => x.k); const cur = selMonths(ui.report); const k = el.dataset.v; cur.has(k) ? cur.delete(k) : cur.add(k); ui.months = new Set(all.filter(x => cur.has(x))); return render(); }
+    case 'month': { const k = el.dataset.v; ui.monthsOff.has(k) ? ui.monthsOff.delete(k) : ui.monthsOff.add(k); return render(); }
     case 'mark-sent': return markSentManual();
+    case 'open-batch': return openBatch(el.dataset.id);
+    case 'close-batch': return closeBatch();
+    case 'batch-open': closeBatch(); return openReportPage(el.dataset.id);
     case 'send': return doSend(el.dataset.m, el.dataset.mode || 'pending');
     case 'hide-ios': flags.iosHint = 1; lsSet(LS_FLAGS, flags); return render();
     case 'lang': settings.lang = el.dataset.v; saveSettingsLS(); return render();
@@ -1118,7 +1147,7 @@ document.addEventListener('change', ev => {
   if (ev.target.dataset && ev.target.dataset.pick === 'to') ui.moveTo = ev.target.value;
   if (ev.target.dataset && ev.target.dataset.f === 'report' && ui.draft) ui.draft.report = ev.target.value;
 });
-document.addEventListener('keydown', ev => { if (ev.key === 'Escape') { if (!$('#viewer').hidden) closeViewer(); else if (ui.rdraft) closeRep(); else if (ui.draft) closeAdd(); } });
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape') { if (!$('#viewer').hidden) closeViewer(); else if ($('#sh-batch').classList.contains('open')) closeBatch(); else if (ui.rdraft) closeRep(); else if (ui.draft) closeAdd(); } });
 
 /* ───────────── force update (keeps all expenses/photos; only clears the app-file cache) ───────────── */
 async function forceRefresh() {
