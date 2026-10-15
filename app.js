@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const CFG = window.CMG_CONFIG || {};
-const VERSION = '1.6.2';
+const VERSION = '1.7.0';
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -23,6 +23,13 @@ const TXT = {
     chooseApprover: 'Elige a tu responsable…', otherApprover: 'Otro (escribir)',
     shareHint: 'Se abre tu app de correo con el Excel y el ZIP adjuntos. El destinatario ya está copiado: pégalo en «Para».',
     readyTapAgain: 'Archivos listos: toca otra vez para enviar', shareFailed: 'Este teléfono no permitió compartir los archivos; se descargan para adjuntarlos',
+    sentBadge: 'Enviado', sentOn: (d, to, n, tot) => 'El ' + d + ' a ' + to + ' · ' + n + (n === 1 ? ' gasto' : ' gastos') + ' · ' + tot, resend: 'Enviar de nuevo', resendTag: 'reenvío',
+    resendHint: 'Si no llegó, o quieres volver a mandarlo, pulsa «Enviar de nuevo»: se envía el informe completo con todos los gastos enviados. Cuando ya te hayan pagado, pulsa «Reembolsado».',
+    resentOk: 'Reenviado correctamente ✓', sendFailed: 'No se pudo enviar (detalles abajo)', confirming: 'Confirmando…',
+    relayBad: 'El servicio de envío contestó algo inesperado. Es posible que el correo SÍ se haya enviado: revisa la bandeja de destino antes de reintentar.',
+    relayUnsure: 'No hemos podido confirmar el envío. Puede que el correo SÍ haya llegado: revisa la bandeja de destino.',
+    relayUnsureAsk: to => 'No hemos podido confirmar el envío a ' + to + '. ¿Ha llegado el correo?\n\nAceptar = marcar como enviado.\nCancelar = dejarlo pendiente (puedes volver a pulsar «Enviar ahora»: no se duplicará).',
+    markSentLink: 'Ya lo envié: marcar como enviado', markManualAsk: '¿Seguro que este informe ya se envió y llegó? Se marcará como enviado sin enviar nada.',
     saveNext: n => 'Guardar y siguiente (' + n + ')', viewFile: 'Ver justificante', viewHint: 'Toca una foto para verla en grande', zoomHint: 'Toca la imagen para ampliar', noFile: 'No se encuentra el archivo',
     draftsT: 'Por completar', draftsHint: 'Fotos guardadas sin datos. Ábrelas para añadir importe y categoría; no se envían hasta completarlas.',
     quickPhoto: 'Foto rápida', importFiles: 'Importar', draftTag: 'Por completar', draftTitle: 'Foto sin datos', saveDraft: 'Completar después',
@@ -91,6 +98,13 @@ const TXT = {
     chooseApprover: 'Choose your approver…', otherApprover: 'Other (type)',
     shareHint: 'Your mail app opens with the Excel and ZIP attached. The recipient is already copied: paste it into “To”.',
     readyTapAgain: 'Files ready: tap again to send', shareFailed: 'This phone refused to share the files; downloading them to attach instead',
+    sentBadge: 'Sent', sentOn: (d, to, n, tot) => 'On ' + d + ' to ' + to + ' · ' + n + (n === 1 ? ' expense' : ' expenses') + ' · ' + tot, resend: 'Send again', resendTag: 'resent',
+    resendHint: 'If it did not arrive, or you want to send it again, tap “Send again”: the full report with all sent expenses goes out again. Once it has been paid, tap “Reimbursed”.',
+    resentOk: 'Sent again ✓', sendFailed: 'Could not send (details below)', confirming: 'Confirming…',
+    relayBad: 'The sending service answered something unexpected. The email MAY have been sent: check the destination inbox before retrying.',
+    relayUnsure: 'We could not confirm the sending. The email may well have arrived: check the destination inbox.',
+    relayUnsureAsk: to => 'We could not confirm the send to ' + to + '. Did the email arrive?\n\nOK = mark as sent.\nCancel = leave pending (you can tap “Send now” again: it will not be duplicated).',
+    markSentLink: 'Already sent: mark as sent', markManualAsk: 'Are you sure this report was already sent and arrived? It will be marked as sent without sending anything.',
     saveNext: n => 'Save & next (' + n + ')', viewFile: 'View receipt', viewHint: 'Tap a photo to view it full screen', zoomHint: 'Tap the image to zoom', noFile: 'File not found',
     draftsT: 'To complete', draftsHint: 'Photos saved without details. Open them to add amount and category; they are not sent until completed.',
     quickPhoto: 'Quick photo', importFiles: 'Import', draftTag: 'To complete', draftTitle: 'Photo, no details', saveDraft: 'Complete later',
@@ -169,7 +183,7 @@ function normalizeState(s) {
 normalizeState(st);
 let flags = lsGet(LS_FLAGS, {});
 let rev = 0;
-const ui = { page: 'home', status: 'pending', rep: 'all', report: null, rdraft: null, selMode: false, picked: new Set(), moveTo: null, moveAfterCreate: false, months: null, draft: null, pkg: null, busy: false };
+const ui = { page: 'home', status: 'pending', rep: 'all', report: null, rdraft: null, selMode: false, picked: new Set(), moveTo: null, moveAfterCreate: false, months: null, draft: null, pkg: null, pkgs: {}, sendError: null, busy: false };
 const L = () => TXT[settings.lang] || TXT.es;
 const t = (k, ...a) => { const v = L()[k]; return typeof v === 'function' ? v(...a) : (v == null ? k : v); };
 const catLabel = (k, lang) => (TXT[lang || settings.lang].cats[k] || k);
@@ -383,6 +397,7 @@ function pageExpenses() {
   </div>`;
 }
 
+const sentOf = rid => st.expenses.filter(e => e.status === 'sent' && !e.draft && e.report === rid).sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
 const pendingOf = rid => st.expenses.filter(e => e.status === 'pending' && !e.draft && e.report === rid);
 const pendingMonths = rid => {
   const m = new Map();
@@ -453,21 +468,37 @@ function pageReport(id) {
       ${sel.map(e => `<tr><td class="num">${esc(dShort(e.date))}</td><td>${esc(e.concept || catLabel(e.cat))}<div class="muted small">${esc(catLabel(e.cat))}${nFiles(e) ? '' : ' · ' + esc(t('noRec'))}</div></td><td class="r num">${eur(e.amount)}</td></tr>`).join('')}
     </tbody><tfoot><tr><td colspan="2">${esc(t('total'))}</td><td class="r num">${eur(total)}</td></tr></tfoot></table></div></div>
     <p class="hint" style="margin:10px 2px 0">${esc(t('attach', nRec, mb(size)))}${noRec ? ' · <span style="color:var(--warn)">' + esc(t('withoutRec', noRec)) + '</span>' : ''}</p>
-    <div style="margin-top:22px"><button class="btn" id="send-main" data-act="send" data-m="${mt.primary}" ${ok ? '' : 'disabled'}>${svg(ic[mt.primary])}<span>${esc(label[mt.primary])}</span></button>
+    <div style="margin-top:22px"><button class="btn" id="send-main" data-act="send" data-mode="pending" data-m="${mt.primary}" ${ok ? '' : 'disabled'}>${svg(ic[mt.primary])}<span>${esc(label[mt.primary])}</span></button>
     <div class="btn-row" style="margin-top:10px">${mt.others.map(m => `<button class="btn ghost sm" data-act="send" data-m="${m}" ${ok ? '' : 'disabled'}>${svg(ic[m])}${esc(alt[m])}</button>`).join('')}</div>
-    ${mt.primary === 'share' ? `<p class="hint" style="text-align:center;margin-top:10px">${esc(t('shareHint'))}</p>` : ''}</div>`;
+    ${mt.primary === 'share' ? `<p class="hint" style="text-align:center;margin-top:10px">${esc(t('shareHint'))}</p>` : ''}
+    <div style="text-align:center;margin-top:14px"><button class="muted small" style="text-decoration:underline" data-act="mark-sent">${esc(t('markSentLink'))}</button></div></div>`;
   }
-  const done = sentL.length ? `${sec(t('sentSec'))}<div class="card">${sentL.map(expRow).join('')}</div>
-    <p class="hint" style="margin:10px 2px 14px">${esc(t('expensedHint'))}</p>
+  const sendBtns = (mode, mainId, ok, mainLabel) => {
+    const mt = methods();
+    const label = { relay: t('sendNow'), gmail: t('sendGmail'), share: t('shareMail'), download: t('dlMail') };
+    const ic = { relay: UI_ICON.send, gmail: UI_ICON.mail, share: UI_ICON.share, download: UI_ICON.down };
+    const alt = { relay: t('viaRelay'), gmail: t('viaGmail'), share: t('viaShare'), download: t('viaDl') };
+    return `<button class="btn" id="${mainId}" data-act="send" data-mode="${mode}" data-m="${mt.primary}" ${ok ? '' : 'disabled'}>${svg(ic[mt.primary])}<span>${esc(mainLabel || label[mt.primary])}</span></button>
+      <div class="btn-row" style="margin-top:10px">${mt.others.map(m => `<button class="btn ghost sm" data-act="send" data-mode="${mode}" data-m="${m}" ${ok ? '' : 'disabled'}>${svg(ic[m])}${esc(alt[m])}</button>`).join('')}</div>
+      ${mt.primary === 'share' ? `<p class="hint" style="text-align:center;margin-top:10px">${esc(t('shareHint'))}</p>` : ''}`;
+  };
+  const lastB = [...st.batches].reverse().find(b => b.report === id && !b.expensedAt);
+  const done = sentL.length ? `${sec(t('sentSec'))}
+    <div class="notice"><b>✓ ${esc(t('sentBadge'))}</b>${lastB ? '<br>' + esc(t('sentOn', new Date(lastB.at).toLocaleDateString(settings.lang === 'en' ? 'en-GB' : 'es-ES'), lastB.to || '', sentL.length, eur(sentL.reduce((s, e) => s + e.amount, 0)))) : ''}</div>
+    <div class="card">${sentL.map(expRow).join('')}</div>
+    <div style="margin-top:16px">${sendBtns('resend', 'resend-main', !!profileOK(), t('resend'))}</div>
+    <p class="hint" style="margin:10px 2px 18px">${esc(t('resendHint'))}</p>
+    <p class="hint" style="margin:0 2px 14px">${esc(t('expensedHint'))}</p>
     <button class="btn ghost" data-act="expensed">${svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>')}<span>${esc(t('expensed'))}</span></button>` : '';
+  const errBox = ui.sendError ? `<div class="notice warn" style="margin-top:16px">${esc(ui.sendError.msg)}${ui.sendError.detail ? `<div class="small" style="margin-top:8px;opacity:.85;overflow-wrap:anywhere">${esc(ui.sendError.detail)}</div>` : ''}</div>` : '';
   const draftWarn = drafts.length ? `<div class="notice warn" style="margin-top:16px">${esc(t('draftsWarn', drafts.length))} <button class="muted" style="text-decoration:underline;margin-left:6px" data-act="edit" data-id="${drafts[0].id}">${esc(t('complete'))}</button></div>` : '';
-  return `<div class="page">${head}${draftWarn}${body}${done}</div>`;
+  return `<div class="page">${head}${draftWarn}${errBox}${body}${done}</div>`;
 }
 
 function historyHtml() {
   if (!st.batches.length) return '';
   return `<div class="sec"><b>02</b> ${esc(t('history'))}</div><div class="card">${[...st.batches].reverse().slice(0, 8).map(b =>
-    `<div class="row"><span class="ico">${svg(UI_ICON.mail)}</span><span class="row-main"><span class="row-t" style="display:block">${esc(b.reportName && !b.reportName.toLowerCase().includes(b.period.toLowerCase()) ? b.reportName + ' · ' + b.period : (b.reportName || b.period))}</span><span class="row-s" style="display:block">${esc(t('hist', new Date(b.at).toLocaleDateString(settings.lang === 'en' ? 'en-GB' : 'es-ES'), b.count, eur(b.total)))}</span></span>${b.expensedAt ? `<span class="tag ok">${esc(t('reimbursed'))}</span>` : ''}</div>`).join('')}</div>`;
+    `<div class="row"><span class="ico">${svg(UI_ICON.mail)}</span><span class="row-main"><span class="row-t" style="display:block">${esc((b.reportName && !b.reportName.toLowerCase().includes(b.period.toLowerCase()) ? b.reportName + ' · ' + b.period : (b.reportName || b.period)) + (b.resend ? ' · ' + t('resendTag') : ''))}</span><span class="row-s" style="display:block">${esc(t('hist', new Date(b.at).toLocaleDateString(settings.lang === 'en' ? 'en-GB' : 'es-ES'), b.count, eur(b.total)))}</span></span>${b.expensedAt ? `<span class="tag ok">${esc(t('reimbursed'))}</span>` : ''}</div>`).join('')}</div>`;
 }
 
 function pageSettings() {
@@ -524,12 +555,12 @@ function render() {
   });
   const m = $('#main'), keep = m.scrollTop;
   m.innerHTML = { home: pageHome, expenses: pageExpenses, reports: pageReports, settings: pageSettings }[ui.page]();
-  if (ui.page === 'reports' && ui.report) schedulePrepare(); else ui.pkg = null;
+  if (ui.page === 'reports' && ui.report) { schedulePrepare(); warmRelay(); } else ui.pkgs = {};
   m.scrollTop = keep;
   hydrateThumbs();
 }
-function go(p) { ui.page = p; ui.report = null; ui.months = null; $('#main').scrollTop = 0; render(); }
-function openReportPage(id) { ui.page = 'reports'; ui.report = id; ui.months = null; $('#main').scrollTop = 0; render(); }
+function go(p) { ui.page = p; ui.report = null; ui.sendError = null; ui.months = null; $('#main').scrollTop = 0; render(); }
+function openReportPage(id) { ui.page = 'reports'; ui.sendError = null; ui.report = id; ui.months = null; $('#main').scrollTop = 0; render(); }
 
 /* ───────────── add / edit sheet ───────────── */
 function openAdd(cat, id) {
@@ -700,7 +731,7 @@ function periodLabel(sel, fn) {
   return a.y === b.y ? TXT.es.months[a.m - 1] + ' – ' + fn(b.y, b.m) : lab(ks[0]) + ' – ' + lab(ks[ks.length - 1]);
 }
 
-async function buildPackage(sel, r) {
+async function buildPackage(sel, r, resend) {
   const nameEs = settings.name.trim();
   const repEs = r.general ? '' : r.name;
   let n = 0;
@@ -733,24 +764,31 @@ async function buildPackage(sel, r) {
   return {
     xlsxBlob, zipBlob, xlsxName: `Hoja_de_gastos_${who}_${[repTag, dup ? '' : fileTag].filter(Boolean).join('_')}.xlsx`, zipName: `Justificantes_${who}_${[repTag, dup ? '' : fileTag].filter(Boolean).join('_')}.zip`,
     period, total, count: sel.length, receipts: n, ids: sel.map(e => e.id), report: r.id, reportName: repEs,
-    subject: TXT.es.mailSubject(dup ? '' : period, nameEs, repEs),
-    body: TXT.es.mailBody({ name: nameEs, per: period, report: repEs, n: sel.length, total: new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(total), rec: n, approver: settings.approver.trim() })
+    subject: (resend ? 'Reenvío: ' : '') + TXT.es.mailSubject(dup ? '' : period, nameEs, repEs),
+    body: (resend ? 'REENVÍO: este informe ya se envió anteriormente.\n\n' : '') + TXT.es.mailBody({ name: nameEs, per: period, report: repEs, n: sel.length, total: new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(total), rec: n, approver: settings.approver.trim() })
   };
 }
 
-const pkgKey = () => rev + '|' + ui.report + '|' + [...selMonths(ui.report)].sort().join(',');
+const pkgKey = mode => rev + '|' + ui.report + '|' + mode + '|' + (mode === 'resend' ? '' : [...selMonths(ui.report)].sort().join(','));
 let prepT;
 function schedulePrepare() {
-  clearTimeout(prepT); ui.pkg = null;
+  clearTimeout(prepT); ui.pkgs = {};
   if (ui.page !== 'reports' || !ui.report) return;
   prepT = setTimeout(() => {
-    if (!ui.report) return;
-    const sel = selected(ui.report); if (!sel.length || !profileOK()) return;
-    const key = pkgKey(), r = rep(ui.report);
-    const p = buildPackage(sel, r).then(v => { if (ui.pkg && ui.pkg.key === key) ui.pkg.value = v; return v; });
-    ui.pkg = { key, promise: p, value: null }; p.catch(() => { });
+    if (!ui.report || !profileOK()) return;
+    const rp = rep(ui.report);
+    for (const mode of ['pending', 'resend']) {
+      const sel = mode === 'resend' ? sentOf(rp.id) : selected(rp.id);
+      if (!sel.length) continue;
+      const key = pkgKey(mode);
+      const p = buildPackage(sel, rp, mode === 'resend').then(v => { const sl = ui.pkgs[mode]; if (sl && sl.key === key) sl.value = v; return v; });
+      ui.pkgs[mode] = { key, promise: p, value: null }; p.catch(() => { });
+    }
   }, 250);
 }
+
+let lastPing = 0;
+function warmRelay() { if (!CFG.relayUrl || Date.now() - lastPing < 240000) return; lastPing = Date.now(); CmgMail.relayPing(CFG.relayUrl); }
 
 function markSent(pkg, method) {
   const at = Date.now(), bid = 'b' + at;
@@ -758,29 +796,45 @@ function markSent(pkg, method) {
   st.batches.push({ id: bid, at, report: pkg.report, reportName: pkg.reportName, period: pkg.period, count: pkg.count, total: pkg.total, method, to: settings.sendTo });
   persist(); render();
 }
+function markSentManual() {   // "it already went out" (for example the confirmation never reached the phone)
+  const rp = rep(ui.report), sel = selected(rp.id);
+  if (!sel.length || !confirm(t('markManualAsk'))) return;
+  markSent({ ids: sel.map(e => e.id), report: rp.id, reportName: rp.general ? '' : rp.name, period: periodLabel(sel, monthNameEs), count: sel.length, total: r2(sel.reduce((a, e) => a + e.amount, 0)) }, 'manual');
+  toast(t('markedSent'));
+}
+function logResend(pkg, method) {   // already-sent expenses stay "Enviado"; we only record that it went out again
+  const at = Date.now();
+  st.batches.push({ id: 'b' + at, at, report: pkg.report, reportName: pkg.reportName, period: pkg.period, count: pkg.count, total: pkg.total, method, to: settings.sendTo, resend: true });
+  persist(); render();
+}
 
-async function downloadAndMail(pkg, atts, cc) {
+async function downloadAndMail(pkg, atts, cc, resend) {
   atts.forEach((a, i) => setTimeout(() => CmgMail.download(a.blob, a.name), i * 400));
   toast(t('downloaded'));
   setTimeout(() => {
     location.href = 'mailto:' + encodeURIComponent(settings.sendTo.trim()).replace('%40', '@') + '?subject=' + encodeURIComponent(pkg.subject) + (cc ? '&cc=' + encodeURIComponent(cc) : '') + '&body=' + encodeURIComponent(pkg.body);
   }, 1200);
-  setTimeout(() => { if (confirm(t('sentAsk'))) { markSent(pkg, 'download'); toast(t('markedSent')); } }, 6000);
+  setTimeout(() => { if (resend) logResend(pkg, 'download'); else if (confirm(t('sentAsk'))) { markSent(pkg, 'download'); toast(t('markedSent')); } }, 6000);
 }
 
-async function doSend(method) {
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function doSend(method, mode) {
+  mode = mode || 'pending';
   if (ui.busy || !ui.report) return;
-  const r = rep(ui.report), sel = selected(r.id);
+  const resend = mode === 'resend';
+  const r = rep(ui.report), sel = resend ? sentOf(r.id) : selected(r.id);
   if (!sel.length || !profileOK()) return;
-  ui.busy = true;
+  ui.busy = true; ui.sendError = null;
   const btns = [...document.querySelectorAll('[data-act="send"]')]; btns.forEach(b => b.disabled = true);
-  const main = $('#send-main'), orig = main && main.innerHTML;
+  const main = $(resend ? '#resend-main' : '#send-main'), orig = main && main.innerHTML;
   const busy = txt => { if (main) main.innerHTML = `<span class="spin"></span><span>${esc(txt)}</span>`; };
+  const done = (pkg, m) => resend ? logResend(pkg, m) : markSent(pkg, m);
+  let failed = false;
   try {
-    const key = pkgKey();
-    let pkg = ui.pkg && ui.pkg.key === key ? (ui.pkg.value || null) : null;
+    const key = pkgKey(mode), slot = ui.pkgs && ui.pkgs[mode];
+    let pkg = slot && slot.key === key ? (slot.value || null) : null;
     if (!pkg) {
-      busy(t('building')); pkg = ui.pkg && ui.pkg.key === key ? await ui.pkg.promise : await buildPackage(sel, r);
+      busy(t('building')); pkg = slot && slot.key === key ? await slot.promise : await buildPackage(sel, r, resend);
       if (method === 'share') { toast(t('readyTapAgain')); return; } // the share sheet only opens straight from a tap
     }
     const cc = settings.ccApprover && isEmail(settings.approverEmail) ? settings.approverEmail.trim() : '';
@@ -791,11 +845,26 @@ async function doSend(method) {
       if (atts.reduce((n, a) => n + a.blob.size, 0) > 15 * 1024 * 1024) throw Object.assign(new Error(t('tooBig')), { soft: true });
       const attachments = [];
       for (const a of atts) attachments.push({ name: a.name, type: a.type, b64: await CmgMail.blobToB64(a.blob) });
-      pkg.sendId = pkg.sendId || ('s' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8));   // lets the relay ignore an accidental double send
-      await CmgMail.relaySend({ url: CFG.relayUrl, key: CFG.relayKey, payload: {
-        id: pkg.sendId, to: settings.sendTo.trim(), cc: cc && domOK(cc) ? cc : '', replyTo: isEmail(settings.personalEmail) ? settings.personalEmail.trim() : '',
+      // same id for every attempt of THIS tap: if the first attempt did send but its answer got lost, the retry is answered "duplicate" instead of sending twice
+      const sendId = 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      const call = () => CmgMail.relaySend({ url: CFG.relayUrl, key: CFG.relayKey, payload: {
+        id: sendId, to: settings.sendTo.trim(), cc: cc && domOK(cc) ? cc : '', replyTo: isEmail(settings.personalEmail) ? settings.personalEmail.trim() : '',
         employee: settings.name.trim(), subject: pkg.subject, body: pkg.body, attachments } });
-      markSent(pkg, 'relay'); toast(t('sentOk'));
+      try { await call(); }
+      catch (e1) {
+        const unreadable = e1 && (e1.badResponse || e1.name === 'TypeError' || e1.name === 'AbortError');
+        if (!unreadable) throw e1;                              // a real refusal (wrong key, address not allowed…) is not retried
+        busy(t('confirming')); await sleep(3000);
+        try { await call(); }
+        catch (e2) {
+          if (!(e2 && (e2.badResponse || e2.name === 'TypeError' || e2.name === 'AbortError'))) throw e2;
+          // two unreadable answers: the mail may well have gone out. Let the person decide instead of guessing.
+          ui.sendError = { msg: t('relayUnsure'), detail: String(e2.message || e2) };
+          if (confirm(t('relayUnsureAsk', settings.sendTo.trim()))) { ui.sendError = null; done(pkg, 'relay'); toast(t(resend ? 'resentOk' : 'markedSent')); }
+          failed = !!ui.sendError; return;
+        }
+      }
+      done(pkg, 'relay'); toast(t(resend ? 'resentOk' : 'sentOk'));
     } else if (method === 'gmail') {
       busy(t('sending'));
       let token;
@@ -804,29 +873,35 @@ async function doSend(method) {
       const mime = await CmgMail.buildMime({ to: settings.sendTo.trim(), cc, subject: pkg.subject, text: pkg.body, attachments: atts });
       if (mime.size > 25 * 1024 * 1024) throw Object.assign(new Error(t('tooBig')), { soft: true });
       await CmgMail.gmailSend(token, mime);
-      markSent(pkg, 'gmail'); toast(t('sentOk'));
+      done(pkg, 'gmail'); toast(t(resend ? 'resentOk' : 'sentOk'));
     } else if (method === 'share') {
       const files = atts.map(a => new File([a.blob], a.name, { type: a.type }));
       try {
         const sharing = CmgMail.shareFiles({ files, title: pkg.subject, text: pkg.body });   // called synchronously from the tap
         try { navigator.clipboard.writeText(settings.sendTo.trim()).then(() => toast(t('recCopied')), () => { }); } catch (e) { }
-        const done = await sharing;
-        if (done && confirm(t('sentAsk'))) { markSent(pkg, 'share'); toast(t('markedSent')); }
+        const shared = await sharing;
+        if (shared) { if (resend) { logResend(pkg, 'share'); toast(t('resentOk')); } else if (confirm(t('sentAsk'))) { markSent(pkg, 'share'); toast(t('markedSent')); } }
       } catch (e) {
         console.warn('share failed, falling back to download', e);
         toast(t('shareFailed'), true);
-        await downloadAndMail(pkg, atts, cc);
+        await downloadAndMail(pkg, atts, cc, resend);
       }
     } else {
-      await downloadAndMail(pkg, atts, cc);
+      await downloadAndMail(pkg, atts, cc, resend);
     }
   } catch (e) {
     console.error(e);
+    failed = true;
     const net = e && (e.name === 'TypeError' || e.name === 'AbortError');
-    toast(e && e.soft ? e.message : method === 'relay' ? (net ? t('relayOffline') : t('relayErr') + (e && e.message || e)) : (method === 'gmail' ? t('gErr') : '') + (e && e.message || e), true);
+    const msg = e && e.soft ? e.message : method === 'relay' ? (net ? t('relayOffline') : (e && e.badResponse ? t('relayBad') : t('relayErr') + (e && e.message || e))) : (method === 'gmail' ? t('gErr') : '') + (e && e.message || e);
+    ui.sendError = e && e.soft ? null : { msg, detail: e && e.badResponse ? String(e.message) : '' };
+    toast(e && e.soft ? msg : t('sendFailed'), true);
   } finally {
     ui.busy = false;
-    if (ui.page === 'reports') { if (main && main.isConnected) main.innerHTML = orig; btns.forEach(b => b.disabled = false); }
+    if (ui.page === 'reports') {
+      if (failed || ui.sendError) render();
+      else { if (main && main.isConnected) main.innerHTML = orig; btns.forEach(b => b.disabled = false); }
+    }
   }
 }
 
@@ -962,7 +1037,8 @@ document.addEventListener('click', async ev => {
     case 'status': ui.status = el.dataset.v; return render();
     case 'rep': ui.rep = el.dataset.v; return render();
     case 'month': { const all = pendingMonths(ui.report).map(x => x.k); const cur = selMonths(ui.report); const k = el.dataset.v; cur.has(k) ? cur.delete(k) : cur.add(k); ui.months = new Set(all.filter(x => cur.has(x))); return render(); }
-    case 'send': return doSend(el.dataset.m);
+    case 'mark-sent': return markSentManual();
+    case 'send': return doSend(el.dataset.m, el.dataset.mode || 'pending');
     case 'hide-ios': flags.iosHint = 1; lsSet(LS_FLAGS, flags); return render();
     case 'lang': settings.lang = el.dataset.v; saveSettingsLS(); return render();
     case 'save-settings': return saveSettings();

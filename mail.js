@@ -105,17 +105,25 @@ const encHeader = s => {
     setTimeout(() => URL.revokeObjectURL(url), 4000);
   }
 
+  /** Wakes the Apps Script (a cold start can take ~20 s). Fire and forget. */
+  function relayPing(url) { try { fetch(url, { mode: 'no-cors', cache: 'no-store' }).catch(() => { }); } catch (e) { } }
+
   /** Posts the report to the company relay (Apps Script web app). Plain-text body = no CORS preflight. */
   async function relaySend({ url, key, payload }) {
     const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 150000);
     try {
       const r = await fetch(url, { method: 'POST', body: JSON.stringify(Object.assign({}, payload, { key })), signal: ctrl.signal, redirect: 'follow' });
       const txt = await r.text();
-      let j; try { j = JSON.parse(txt); } catch (e) { throw Object.assign(new Error('RELAY_BAD_RESPONSE'), { relay: true }); }
+      let j; try { j = JSON.parse(txt); } catch (e) {
+        // not JSON: Google sent an error / interstitial page (often when the script was cold and slow). Keep a readable snippet for support.
+        const seen = txt.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140);
+        console.error('relay: unreadable response', r.status, txt.slice(0, 400));
+        throw Object.assign(new Error('RELAY_BAD_RESPONSE (HTTP ' + r.status + ') ' + seen), { relay: true, badResponse: true });
+      }
       if (!j.ok) throw Object.assign(new Error(j.error || 'relay error'), { relay: true });
       return j;
     } finally { clearTimeout(timer); }
   }
 
-  root.CmgMail = { relaySend, buildMime, getToken, gmailSend, shareFiles, download, asciiName, blobToB64 };
+  root.CmgMail = { relayPing, relaySend, buildMime, getToken, gmailSend, shareFiles, download, asciiName, blobToB64 };
 })(window);
