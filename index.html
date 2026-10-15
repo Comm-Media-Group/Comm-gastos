@@ -60,6 +60,13 @@
 <input type="file" id="in-qfile" accept="image/*,application/pdf" multiple hidden>
 <input type="file" id="in-restore" accept=".zip,application/zip,application/x-zip-compressed" hidden>
 
+<!-- full-screen receipt viewer -->
+<div class="viewer" id="viewer" hidden>
+  <button class="viewer-x" data-act="close-view" aria-label="×">×</button>
+  <div class="viewer-sc" id="viewer-sc"><img id="viewer-img" alt="" data-act="zoom-view"></div>
+  <div class="viewer-hint" id="viewer-hint"></div>
+</div>
+
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="config.js"></script>

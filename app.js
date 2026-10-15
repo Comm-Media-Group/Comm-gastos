@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const CFG = window.CMG_CONFIG || {};
-const VERSION = '1.2.1';
+const VERSION = '1.3.0';
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -16,6 +16,7 @@ const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
 const TXT = {
   es: {
     home: 'Inicio', expenses: 'Gastos', send: 'Enviar', reports: 'Informes', settings: 'Ajustes',
+    saveNext: n => 'Guardar y siguiente (' + n + ')', viewFile: 'Ver justificante', viewHint: 'Toca una foto para verla en grande', zoomHint: 'Toca la imagen para ampliar', noFile: 'No se encuentra el archivo',
     draftsT: 'Por completar', draftsHint: 'Fotos guardadas sin datos. Ábrelas para añadir importe y categoría; no se envían hasta completarlas.',
     quickPhoto: 'Foto rápida', importFiles: 'Importar', draftTag: 'Por completar', draftTitle: 'Foto sin datos', saveDraft: 'Completar después',
     draftsSaved: n => n === 1 ? 'Guardado en «Por completar»' : n + ' guardados en «Por completar»', draftSaved: 'Guardado en «Por completar»',
@@ -76,6 +77,7 @@ const TXT = {
   },
   en: {
     home: 'Home', expenses: 'Expenses', send: 'Send', reports: 'Reports', settings: 'Settings',
+    saveNext: n => 'Save & next (' + n + ')', viewFile: 'View receipt', viewHint: 'Tap a photo to view it full screen', zoomHint: 'Tap the image to zoom', noFile: 'File not found',
     draftsT: 'To complete', draftsHint: 'Photos saved without details. Open them to add amount and category; they are not sent until completed.',
     quickPhoto: 'Quick photo', importFiles: 'Import', draftTag: 'To complete', draftTitle: 'Photo, no details', saveDraft: 'Complete later',
     draftsSaved: n => n === 1 ? 'Saved to “To complete”' : n + ' saved to “To complete”', draftSaved: 'Saved to “To complete”',
@@ -499,7 +501,7 @@ function openReportPage(id) { ui.page = 'reports'; ui.report = id; ui.months = n
 function openAdd(cat, id) {
   const e = id ? exp(id) : null;
   ui.draft = e ? { id: e.id, cat: e.cat, date: e.date, amount: e.amount ? String(e.amount).replace('.', ',') : '', concept: e.concept || '', client: e.client || '', company: e.company || '', report: e.report,
-      files: filesOf(e).map(f => ({ ...f })), removed: [], status: e.status, sentAt: e.sentAt }
+      files: filesOf(e).map(f => ({ ...f })), removed: [], status: e.status, sentAt: e.sentAt, sticky: !!e.draft, wasDraft: !!e.draft }
     : { id: null, cat: cat || 'restauracion', date: today(), amount: '', concept: '', client: '', company: settings.company || (st.expenses.length ? [...st.expenses].sort((a, b) => b.id - a.id)[0].company : '') || '', report: defaultReport(),
       files: [], removed: [], status: 'pending' };
   const d = ui.draft;
@@ -508,7 +510,7 @@ function openAdd(cat, id) {
   $('#add-title').textContent = e ? (e.draft ? t('draftsT') : t('editExp')) : t('addExp');
   $('#add-body').innerHTML = `
     ${d.status === 'sent' ? `<div class="notice"><b>${esc(t('wasSent'))}</b> ${esc(new Date(d.sentAt).toLocaleDateString(settings.lang === 'en' ? 'en-GB' : 'es-ES'))} <button class="muted" style="text-decoration:underline;margin-left:8px" data-act="unsend">${esc(t('backPending'))}</button></div>` : ''}
-    <div class="fg"><label class="fl">${esc(t('receipt'))}</label><div class="dz" id="dz"></div></div>
+    <div class="dz-wrap" id="dzw"><label class="fl">${esc(t('receipt'))}</label><div class="dz" id="dz"></div></div>
     <div class="fg"><label class="fl" for="f-report">${esc(t('report'))}</label><select class="fi" id="f-report" data-f="report">${st.reports.map(r => `<option value="${esc(r.id)}" ${d.report === r.id ? 'selected' : ''}>${esc(repName(r))}</option>`).join('')}</select></div>
     <div class="fg"><label class="fl">${esc(t('category'))}</label><div class="cats" id="cats">${CAT_KEYS.map(k => `<button type="button" class="cat ${d.cat === k ? 'on' : ''}" data-act="pick-cat" data-v="${k}">${svg(ICON[k])}<span>${esc(catLabel(k))}</span></button>`).join('')}</div></div>
     <div class="fr"><div class="fg"><label class="fl" for="f-amount">${esc(t('amount'))}</label><input class="fi num" id="f-amount" data-f="amount" inputmode="decimal" autocomplete="off" placeholder="0,00" value="${esc(d.amount)}"></div>
@@ -521,7 +523,11 @@ function openAdd(cat, id) {
     <datalist id="dl-company">${cos.map(v => `<option value="${esc(v)}">`).join('')}</datalist>
     <input type="file" id="in-cam" accept="image/*" capture="environment" hidden>
     <input type="file" id="in-file" accept="image/*,application/pdf" multiple hidden>`;
-  $('#add-foot').innerHTML = (e ? `<button class="btn danger" data-act="del" aria-label="${esc(t('del'))}">${esc(t('del'))}</button>` : `<button class="btn ghost" data-act="save-draft">${esc(t('saveDraft'))}</button>`) + `<button class="btn" data-act="save">${esc(t('save'))}</button>`;
+  const others = e && e.draft ? draftsList().filter(x => x.id !== e.id).length : 0;
+  $('#add-foot').innerHTML = e && e.draft
+    ? `<button class="btn ghost" data-act="save">${esc(t('save'))}</button>` + (others ? `<button class="btn" data-act="save-next">${esc(t('saveNext', others))}</button>` : '')
+    : (e ? `<button class="btn danger" data-act="del" aria-label="${esc(t('del'))}">${esc(t('del'))}</button>` : `<button class="btn ghost" data-act="save-draft">${esc(t('saveDraft'))}</button>`) + `<button class="btn" data-act="save">${esc(t('save'))}</button>`;
+  if (e && e.draft) $('#add-body').insertAdjacentHTML('beforeend', `<button class="btn danger sm" style="margin-top:6px" data-act="del">${esc(t('del'))}</button>`);
   renderDz();
   $('#ov-add').classList.add('open'); $('#sh-add').classList.add('open');
 }
@@ -533,13 +539,28 @@ function closeAdd() {
 
 function renderDz() {
   const d = ui.draft, dz = $('#dz'); if (!d || !dz) return;
-  const thumbs = d.files.map((f, i) => `<div class="thx">${f.type === 'application/pdf'
+  const strip = !!d.sticky && d.files.length > 0;
+  $('#dzw').classList.toggle('sticky', strip); dz.classList.toggle('strip', strip);
+  const thumbs = d.files.map((f, i) => `<div class="thx"><button type="button" class="thx-v" data-act="view-file" data-i="${i}" aria-label="${esc(t('viewFile'))}">${f.type === 'application/pdf'
     ? `<div class="pdf">${svg(UI_ICON.file)}<span>PDF</span></div>`
-    : `<img alt="" ${f.preview ? `src="${f.preview}"` : `data-key="${esc(f.key)}"`}>`}<button type="button" class="thx-x" data-act="rm-file" data-i="${i}" aria-label="${esc(t('removeRec'))}">×</button></div>`).join('');
-  dz.innerHTML = (thumbs ? `<div class="thumbs">${thumbs}</div>` : '') +
-    `<div class="dz-btns"><button type="button" class="btn sm ${d.files.length ? 'ghost' : ''}" data-act="cam">${svg(UI_ICON.camera)}${esc(t('takePhoto'))}</button><button type="button" class="btn ghost sm" data-act="file">${svg(UI_ICON.file)}${esc(t('pickFile'))}</button></div>`;
+    : `<img alt="" ${f.preview ? `src="${f.preview}"` : `data-key="${esc(f.key)}"`}>`}</button><button type="button" class="thx-x" data-act="rm-file" data-i="${i}" aria-label="${esc(t('removeRec'))}">×</button></div>`).join('');
+  dz.innerHTML = (thumbs ? `<div class="thumbs">${thumbs}${strip ? `<button type="button" class="thx add" data-act="file" aria-label="${esc(t('pickFile'))}">+</button>` : ''}</div>` : '') +
+    (thumbs ? `<div class="hint" style="margin:-2px 0 ${strip ? 0 : 12}px">${esc(t('viewHint'))}</div>` : '') +
+    (strip ? '' : `<div class="dz-btns"><button type="button" class="btn sm ${d.files.length ? 'ghost' : ''}" data-act="cam">${svg(UI_ICON.camera)}${esc(t('takePhoto'))}</button><button type="button" class="btn ghost sm" data-act="file">${svg(UI_ICON.file)}${esc(t('pickFile'))}</button></div>`);
   dz.querySelectorAll('img[data-key]').forEach(async im => { const u = await receiptUrl(keyOf(im.dataset.key)); if (u && im.isConnected) im.src = u; });
 }
+
+/* full-screen receipt viewer (tap image to zoom / un-zoom) */
+async function openViewer(i) {
+  const f = ui.draft && ui.draft.files[i]; if (!f) return;
+  const url = f.preview || (f.blob ? URL.createObjectURL(f.blob) : await receiptUrl(keyOf(f.key)));
+  if (!url) return toast(t('noFile'), true);
+  if (f.type === 'application/pdf') { window.open(url, '_blank'); return; }
+  const v = $('#viewer'), im = $('#viewer-img');
+  im.classList.remove('zoom'); im.src = url; v.hidden = false; v.scrollTop = 0; $('#viewer-hint').textContent = t('zoomHint');
+  $('#viewer-sc').scrollTo(0, 0);
+}
+function closeViewer() { const v = $('#viewer'); v.hidden = true; $('#viewer-img').removeAttribute('src'); }
 function onPicked(list) {
   const d = ui.draft, files = [...(list || [])].filter(f => f && f.size);
   if (!d || !files.length) return;
@@ -554,7 +575,7 @@ function onPicked(list) {
   });
 }
 
-async function saveExpense(asDraft) {
+async function saveExpense(asDraft, goNext) {
   const d = ui.draft; if (!d) return;
   if (d.pickP) await d.pickP;
   let amount = parseAmt(d.amount);
@@ -579,6 +600,7 @@ async function saveExpense(asDraft) {
     files, draft: !!asDraft, status: d.status || 'pending', sentAt: d.sentAt || null, batch: keepOld ? keepOld.batch : null, createdAt: keepOld ? keepOld.createdAt : Date.now() };
   if (keepOld) st.expenses[st.expenses.indexOf(keepOld)] = rec; else st.expenses.push(rec);
   st.lastReport = rec.report; persist(); closeAdd(); render(); toast(t(asDraft ? 'draftSaved' : 'saved'));
+  if (goNext) { const nx = draftsList()[0]; if (nx) setTimeout(() => openAdd(null, nx.id), 380); }
 }
 
 /* ───────────── report (trip / project) sheet ───────────── */
@@ -871,6 +893,10 @@ document.addEventListener('click', async ev => {
     case 'file': return $('#in-file').click();
     case 'rm-file': if (d) { const i = Number(el.dataset.i), f = d.files[i]; if (f) { if (f.preview) URL.revokeObjectURL(f.preview); if (!f.blob) d.removed.push(f.key); d.files.splice(i, 1); renderDz(); } } return;
     case 'save': return saveExpense(false);
+    case 'save-next': return saveExpense(false, true);
+    case 'view-file': return openViewer(Number(el.dataset.i));
+    case 'close-view': return closeViewer();
+    case 'zoom-view': return $('#viewer-img').classList.toggle('zoom');
     case 'save-draft': return saveExpense(true);
     case 'quick-cam': return $('#in-qcam').click();
     case 'quick-file': return $('#in-qfile').click();
@@ -900,7 +926,7 @@ document.addEventListener('change', ev => {
   if (ev.target.dataset && ev.target.dataset.pick === 'to') ui.moveTo = ev.target.value;
   if (ev.target.dataset && ev.target.dataset.f === 'report' && ui.draft) ui.draft.report = ev.target.value;
 });
-document.addEventListener('keydown', ev => { if (ev.key === 'Escape') { if (ui.rdraft) closeRep(); else if (ui.draft) closeAdd(); } });
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape') { if (!$('#viewer').hidden) closeViewer(); else if (ui.rdraft) closeRep(); else if (ui.draft) closeAdd(); } });
 
 /* ───────────── force update (keeps all expenses/photos; only clears the app-file cache) ───────────── */
 async function forceRefresh() {

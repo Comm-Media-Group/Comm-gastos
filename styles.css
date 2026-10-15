@@ -162,3 +162,20 @@ button[disabled]{opacity:.45;pointer-events:none}
 .thx-x{position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,.72);border:1px solid var(--line2);color:#fff;font-size:17px;line-height:1;display:grid;place-items:center}
 .tab{position:relative}
 .badge{position:absolute;top:0;left:calc(50% + 6px);min-width:17px;height:17px;padding:0 5px;border-radius:9px;background:#fff;color:#000;font-style:normal;font-size:10px;font-weight:600;display:grid;place-items:center}
+
+/* ── receipt viewer + pinned strip ── */
+.thx-v{display:block;width:100%;height:100%;padding:0}
+.dz-wrap{margin-bottom:16px}
+.dz-wrap.sticky{position:sticky;top:-6px;z-index:6;background:var(--surface);margin:0 -22px 12px;padding:8px 22px 8px;border-bottom:1px solid var(--line);box-shadow:0 10px 18px -12px #000}
+.dz-wrap.sticky .fl{display:none}
+.dz.strip{border:0;background:none;padding:0}
+.dz.strip .thumbs{display:flex;gap:8px;overflow-x:auto;margin-bottom:6px;scrollbar-width:none}
+.dz.strip .thx{flex:none;width:88px;aspect-ratio:1}
+.thx.add{flex:none;width:88px;aspect-ratio:1;border:1px dashed var(--line2);font-size:28px;color:var(--muted);display:grid;place-items:center;background:none}
+.viewer{position:fixed;inset:0;z-index:400;background:#000}
+.viewer[hidden]{display:none}
+.viewer-sc{position:absolute;inset:0;overflow:auto;-webkit-overflow-scrolling:touch;display:flex}
+.viewer-sc img{margin:auto;max-width:100%;max-height:100%;object-fit:contain;cursor:zoom-in}
+.viewer-sc img.zoom{flex:none;max-width:none;max-height:none;width:260%;margin:0;cursor:zoom-out}
+.viewer-x{position:absolute;top:calc(var(--safe-t) + 14px);right:16px;z-index:2;width:42px;height:42px;border-radius:50%;background:rgba(0,0,0,.7);border:1px solid var(--line2);color:#fff;font-size:26px;line-height:1;display:grid;place-items:center}
+.viewer-hint{position:absolute;left:0;right:0;bottom:calc(var(--safe-b) + 14px);text-align:center;color:var(--muted);font-size:12px;pointer-events:none}

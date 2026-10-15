@@ -1,5 +1,5 @@
 // Bump VERSION on every deploy — it forces phones to fetch the new files.
-const VERSION = 'comm-gastos-v1.2.1';
+const VERSION = 'comm-gastos-v1.3.0';
 const CORE = ['./', './index.html', './styles.css', './app.js', './config.js', './mail.js', './xlsx-builder.js', './xlsx-assets.js', './manifest.json',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/favicon-32.png', './icons/apple-touch-icon.png'];
 const CDN = ['https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
