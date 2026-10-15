@@ -1,0 +1,41 @@
+// Bump VERSION on every deploy — it forces phones to fetch the new files.
+const VERSION = 'comm-gastos-v1.0.2';
+const CORE = ['./', './index.html', './styles.css', './app.js', './config.js', './mail.js', './xlsx-builder.js', './xlsx-assets.js', './manifest.json',
+  './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/favicon-32.png', './icons/apple-touch-icon.png'];
+const CDN = ['https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
+
+self.addEventListener('install', e => {
+  e.waitUntil((async () => {
+    const c = await caches.open(VERSION);
+    await c.addAll(CORE);
+    await Promise.all(CDN.map(u => c.add(u).catch(() => { }))); // optional; also cached at runtime
+  })());
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== VERSION).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+});
+
+self.addEventListener('fetch', e => {
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  // Google sign-in / Gmail API must always hit the network
+  if (/(^|\.)(accounts\.google\.com|googleapis\.com)$/.test(url.hostname) && !/fonts\./.test(url.hostname)) return;
+
+  const sameOrigin = url.origin === self.location.origin;
+  if (sameOrigin) {
+    // network-first: always pick up new code when online, fall back to cache offline
+    e.respondWith(fetch(req).then(res => {
+      if (res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }
+      return res;
+    }).catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || caches.match('./index.html'))));
+  } else {
+    // fonts + JSZip: cache-first, filled at runtime
+    e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => {
+      if (res.ok || res.type === 'opaque') { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }
+      return res;
+    })));
+  }
+});

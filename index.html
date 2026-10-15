@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>COMM Gastos</title>
+<meta name="description" content="Gastos y justificantes de Comm Media Group">
+<meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="COMM Gastos">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,300;1,400;1,500&family=Montserrat:wght@400;500;600&family=Playfair+Display:ital,wght@1,400;1,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <!-- COMM. wordmark (from commmediagroup.com) -->
+    <svg class="logo" viewBox="0 0 130.12 32.44" aria-label="COMM" role="img" fill="#fff"><path d="M91.38,30.5c-2.3,0-4.29,0-6.44,0c0-9.22,0-18.35,0-27.66c2.1,0,4.2,0,6.44,0C91.38,12.06,91.38,21.2,91.38,30.5z"/><path d="M59.74,2.67c2.66,0,4.89-0.11,7.1,0.07c0.62,0.05,1.4,0.8,1.73,1.43c2.8,5.3,5.52,10.64,8.21,16c0.31,0.61,0.54,1.49,0.34,2.09c-0.9,2.65-1.97,5.23-3.13,8.25C69.15,21.07,64.54,12.05,59.74,2.67z"/><path d="M127.94,30.5c-2.3,0-4.29,0-6.44,0c0-9.22,0-18.35,0-27.66c2.1,0,4.2,0,6.44,0C127.94,12.06,127.94,21.2,127.94,30.5z"/><path d="M96.3,2.67c2.66,0,4.89-0.11,7.1,0.07c0.62,0.05,1.4,0.8,1.73,1.43c2.8,5.3,5.52,10.64,8.21,16c0.31,0.61,0.54,1.49,0.34,2.09c-0.9,2.65-1.97,5.23-3.13,8.25C105.72,21.07,101.11,12.05,96.3,2.67z"/><path d="M45.69,30.5c5.34-9.29,5.26-18.46,0.33-27.7c6.05,0.35,11.11,6.47,11.22,13.48C57.37,23.5,52.28,29.88,45.69,30.5z"/><path d="M39.52,2.87C34.25,12,34.3,21.2,39.22,30.46c-6.38-0.43-11.33-6.83-11.19-14.31C28.16,9.35,33.61,3.02,39.52,2.87z"/><path d="M13.73,2.87C8.46,12,8.5,21.19,13.43,30.46C7.05,30.02,2.1,23.63,2.24,16.14C2.37,9.35,7.81,3.02,13.73,2.87z"/></svg>
+    <div class="top-title" id="top-title"></div>
+  </header>
+
+  <main class="scroll" id="main"></main>
+
+  <nav class="nav" aria-label="Navegación">
+    <button class="tab" data-nav="home"></button>
+    <button class="tab" data-nav="expenses"></button>
+    <button class="fab" data-act="add" aria-label="+"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button class="tab" data-nav="send"></button>
+    <button class="tab" data-nav="settings"></button>
+  </nav>
+</div>
+
+<!-- add / edit expense -->
+<div class="ov" id="ov-add" data-act="close-add"></div>
+<div class="sheet" id="sh-add" role="dialog" aria-modal="true">
+  <div class="grab"></div>
+  <div class="sh-h"><div class="h-lg" id="add-title"></div><button class="sh-x" data-act="close-add" aria-label="×">×</button></div>
+  <div class="sh-b" id="add-body"></div>
+  <div class="sh-f" id="add-foot"></div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="config.js"></script>
+<script src="xlsx-assets.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="xlsx-builder.js"></script>
+<script src="mail.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
