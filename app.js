@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const CFG = window.CMG_CONFIG || {};
-const VERSION = '1.3.0';
+const VERSION = '1.6.2';
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -16,6 +16,13 @@ const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
 const TXT = {
   es: {
     home: 'Inicio', expenses: 'Gastos', send: 'Enviar', reports: 'Informes', settings: 'Ajustes',
+    relayFrom: 'COMM Gastos (buzón de la empresa)', replyTo: 'Respuestas a', viaRelay: 'Enviar directo', relayErr: 'No se pudo enviar: ', relayOffline: 'No se pudo enviar (¿sin conexión?). No se ha perdido nada: inténtalo de nuevo.',
+    personalR: 'Mi email (para respuestas)', personalHintR: 'Opcional. Las respuestas de administración llegarán aquí. El correo sale del buzón de la empresa con tu nombre en el asunto.',
+    change: 'Cambiar', verifyNeed: 'Esta dirección no es de la empresa. Verifícala una sola vez (te enviamos un código) y tus envíos serán de un toque.', verifyBtn: 'Verificar mi dirección', verifiedMsg: 'Dirección verificada: envío de un toque.',
+    codeSent: a => 'Te hemos enviado un código de 6 dígitos a ' + a + '. Escríbelo aquí:', codeOk: 'Confirmar', resend: 'Reenviar código', verifiedOk: '¡Dirección verificada!', wrongCode: 'Código incorrecto', codeExpired: 'El código ha caducado: pide uno nuevo', codeTooMany: 'Demasiados intentos: espera un rato y vuelve a probar',
+    chooseApprover: 'Elige a tu responsable…', otherApprover: 'Otro (escribir)',
+    shareHint: 'Se abre tu app de correo con el Excel y el ZIP adjuntos. El destinatario ya está copiado: pégalo en «Para».',
+    readyTapAgain: 'Archivos listos: toca otra vez para enviar', shareFailed: 'Este teléfono no permitió compartir los archivos; se descargan para adjuntarlos',
     saveNext: n => 'Guardar y siguiente (' + n + ')', viewFile: 'Ver justificante', viewHint: 'Toca una foto para verla en grande', zoomHint: 'Toca la imagen para ampliar', noFile: 'No se encuentra el archivo',
     draftsT: 'Por completar', draftsHint: 'Fotos guardadas sin datos. Ábrelas para añadir importe y categoría; no se envían hasta completarlas.',
     quickPhoto: 'Foto rápida', importFiles: 'Importar', draftTag: 'Por completar', draftTitle: 'Foto sin datos', saveDraft: 'Completar después',
@@ -51,7 +58,7 @@ const TXT = {
     wasSent: 'Enviado el', backPending: 'Volver a pendiente',
     sec_profile: 'Perfil', sec_approval: 'Aprobación', sec_delivery: 'Envío', sec_app: 'Aplicación',
     fullName: 'Nombre y apellidos', defCompany: 'Empresa por defecto', approver: 'Responsable de aprobación', approverEmail: 'Email del responsable (opcional)',
-    ccApprover: 'Enviar copia (CC) al responsable', sendTo: 'Enviar las hojas a', sendToHint: 'Tu correo de trabajo o el de administración. Aquí llegará el Excel con el ZIP de justificantes.',
+    ccApprover: 'Enviar copia (CC) al responsable', sendTo: 'Enviar las hojas a', sendToHint: 'Pon administración, tu correo de trabajo o tu propio correo. Se guarda y no se vuelve a preguntar; solo cambia si lo cambias aquí. Las direcciones de la empresa envían de un toque; una dirección personal se verifica una vez para lo mismo.',
     personal: 'Mi correo personal (desde el que envío)', personalHint: 'Con Gmail el envío sale directamente de tu cuenta. Con otro correo se usa la hoja de compartir del móvil.',
     language: 'Idioma', saveSettings: 'Guardar ajustes', settingsSaved: 'Ajustes guardados', fixFields: 'Revisa los campos marcados',
     welcomeT: 'Bienvenida/o', welcomeS: 'Antes de empezar, rellena tus datos. Solo se guardan en este teléfono.',
@@ -77,6 +84,13 @@ const TXT = {
   },
   en: {
     home: 'Home', expenses: 'Expenses', send: 'Send', reports: 'Reports', settings: 'Settings',
+    relayFrom: 'COMM Gastos (company mailbox)', replyTo: 'Replies to', viaRelay: 'Send direct', relayErr: 'Could not send: ', relayOffline: 'Could not send (offline?). Nothing was lost: try again.',
+    personalR: 'My email (for replies)', personalHintR: 'Optional. Replies from admin will arrive here. The email goes out from the company mailbox with your name in the subject.',
+    change: 'Change', verifyNeed: 'This is not a company address. Verify it once (we email you a code) and your sends will be one tap.', verifyBtn: 'Verify my address', verifiedMsg: 'Address verified: one-tap sending.',
+    codeSent: a => 'We sent a 6-digit code to ' + a + '. Type it here:', codeOk: 'Confirm', resend: 'Resend code', verifiedOk: 'Address verified!', wrongCode: 'Wrong code', codeExpired: 'The code expired: request a new one', codeTooMany: 'Too many attempts: wait a while and try again',
+    chooseApprover: 'Choose your approver…', otherApprover: 'Other (type)',
+    shareHint: 'Your mail app opens with the Excel and ZIP attached. The recipient is already copied: paste it into “To”.',
+    readyTapAgain: 'Files ready: tap again to send', shareFailed: 'This phone refused to share the files; downloading them to attach instead',
     saveNext: n => 'Save & next (' + n + ')', viewFile: 'View receipt', viewHint: 'Tap a photo to view it full screen', zoomHint: 'Tap the image to zoom', noFile: 'File not found',
     draftsT: 'To complete', draftsHint: 'Photos saved without details. Open them to add amount and category; they are not sent until completed.',
     quickPhoto: 'Quick photo', importFiles: 'Import', draftTag: 'To complete', draftTitle: 'Photo, no details', saveDraft: 'Complete later',
@@ -112,7 +126,7 @@ const TXT = {
     wasSent: 'Sent on', backPending: 'Mark as pending again',
     sec_profile: 'Profile', sec_approval: 'Approval', sec_delivery: 'Delivery', sec_app: 'App',
     fullName: 'Full name', defCompany: 'Default company', approver: 'Cost approver', approverEmail: 'Approver email (optional)',
-    ccApprover: 'CC the approver on every report', sendTo: 'Send reports to', sendToHint: 'Your work email or the admin team’s. The Excel and the receipts ZIP arrive here.',
+    ccApprover: 'CC the approver on every report', sendTo: 'Send reports to', sendToHint: 'Admin, your work email or your own email. It is saved and never asked again unless you change it here. Company addresses send with one tap; a personal address is verified once for the same.',
     personal: 'My personal email (sent from)', personalHint: 'With Gmail the message goes straight from your account. Other providers use your phone’s share sheet.',
     language: 'Language', saveSettings: 'Save settings', settingsSaved: 'Settings saved', fixFields: 'Please check the highlighted fields',
     welcomeT: 'Welcome', welcomeS: 'Fill in your details before you start. They are only stored on this phone.',
@@ -165,6 +179,8 @@ function persist() {
   if (!lsSet(LS_STATE, st)) toast(t('storageFull'), true);
   schedulePrepare();
 }
+const sendToLocked = () => !!(CFG.lockSendTo && isEmail(CFG.defaultSendTo));
+if (sendToLocked()) settings.sendTo = CFG.defaultSendTo.trim();
 function saveSettingsLS() { rev++; lsSet(LS_SET, settings); }
 
 /* ───────────── receipts in IndexedDB (photos stay out of localStorage's 5 MB cap) ───────────── */
@@ -376,9 +392,12 @@ const pendingMonths = rid => {
 const selMonths = rid => { const all = pendingMonths(rid).map(x => x.k); if (!ui.months) return new Set(all); return new Set(all.filter(k => ui.months.has(k))); };
 const selected = rid => { const s = selMonths(rid); return pendingOf(rid).filter(e => s.has(e.date.slice(0, 7))).sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id); };
 const hasShare = () => { try { return !!(navigator.canShare && navigator.canShare({ files: [new File(['x'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } };
+const domOK = a => { const ds = (CFG.relayDomains || []).map(x => String(x).toLowerCase()); return !ds.length || ds.includes(String(a || '').split('@').pop().trim().toLowerCase()); };
+const sameAddr = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+const relayOK = () => !!CFG.relayUrl && isEmail(settings.sendTo) && (domOK(settings.sendTo) || sameAddr(settings.verifiedTo, settings.sendTo));   // one tap: company address, or an address the employee verified once
 const methods = () => {
-  const m = []; if (CFG.googleClientId) m.push('gmail'); if (hasShare()) m.push('share'); m.push('download');
-  const pref = CFG.googleClientId && isGmail(settings.personalEmail) ? 'gmail' : (hasShare() ? 'share' : (CFG.googleClientId ? 'gmail' : 'download'));
+  const m = []; if (relayOK()) m.push('relay'); if (CFG.googleClientId) m.push('gmail'); if (hasShare()) m.push('share'); m.push('download');
+  const pref = relayOK() ? 'relay' : CFG.googleClientId && isGmail(settings.personalEmail) ? 'gmail' : (hasShare() ? 'share' : (CFG.googleClientId ? 'gmail' : 'download'));
   return { primary: pref, others: m.filter(x => x !== pref) };
 };
 
@@ -413,16 +432,17 @@ function pageReport(id) {
     const months = pendingMonths(id), sel = selected(id), sm = selMonths(id);
     const total = sel.reduce((s, e) => s + e.amount, 0), nRec = sel.reduce((s, e) => s + nFiles(e), 0), size = sel.reduce((s, e) => s + filesOf(e).reduce((a, f) => a + (f.size || 0), 0), 0);
     const noRec = sel.filter(e => !nFiles(e)).length, mt = methods(), ok = profileOK() && sel.length;
-    const label = { gmail: t('sendGmail'), share: t('shareMail'), download: t('dlMail') };
-    const ic = { gmail: UI_ICON.mail, share: UI_ICON.share, download: UI_ICON.down };
-    const alt = { gmail: t('viaGmail'), share: t('viaShare'), download: t('viaDl') };
+    const label = { relay: t('sendNow'), gmail: t('sendGmail'), share: t('shareMail'), download: t('dlMail') };
+    const ic = { relay: UI_ICON.send, gmail: UI_ICON.mail, share: UI_ICON.share, download: UI_ICON.down };
+    const alt = { relay: t('viaRelay'), gmail: t('viaGmail'), share: t('viaShare'), download: t('viaDl') };
     body = `${profileOK() ? '' : `<div class="notice warn" style="margin-top:16px">${esc(t('setupFirst'))}<br><button class="muted" style="text-decoration:underline;margin-top:6px" data-nav="settings">${esc(t('goSettings'))}</button></div>`}
     ${sec(t('sec_summary'))}
     <div class="card"><dl class="kv">
       <dt>${esc(t('report'))}</dt><dd>${esc(repName(r))}</dd>
       <dt>${esc(t('requester'))}</dt><dd>${esc(settings.name || '—')}</dd>
-      <dt>${esc(t('from'))}</dt><dd>${esc(settings.personalEmail || '—')}</dd>
-      <dt>${esc(t('to'))}</dt><dd>${esc(settings.sendTo || t('notSet'))}</dd>
+      <dt>${esc(t('from'))}</dt><dd>${esc(relayOK() ? t('relayFrom') : (settings.personalEmail || '—'))}</dd>
+      ${relayOK() && isEmail(settings.personalEmail) ? `<dt>${esc(t('replyTo'))}</dt><dd>${esc(settings.personalEmail)}</dd>` : ''}
+      <dt>${esc(t('to'))}</dt><dd>${esc(settings.sendTo || t('notSet'))} ${sendToLocked() ? '' : `<button class="muted small" style="text-decoration:underline;margin-left:6px" data-nav="settings">${esc(t('change'))}</button>`}</dd>
       ${settings.ccApprover && isEmail(settings.approverEmail) ? `<dt>${esc(t('cc'))}</dt><dd>${esc(settings.approverEmail)}</dd>` : ''}
       <dt>${esc(t('approverL'))}</dt><dd>${esc(settings.approver || t('notSet'))}</dd>
     </dl></div>
@@ -434,7 +454,8 @@ function pageReport(id) {
     </tbody><tfoot><tr><td colspan="2">${esc(t('total'))}</td><td class="r num">${eur(total)}</td></tr></tfoot></table></div></div>
     <p class="hint" style="margin:10px 2px 0">${esc(t('attach', nRec, mb(size)))}${noRec ? ' · <span style="color:var(--warn)">' + esc(t('withoutRec', noRec)) + '</span>' : ''}</p>
     <div style="margin-top:22px"><button class="btn" id="send-main" data-act="send" data-m="${mt.primary}" ${ok ? '' : 'disabled'}>${svg(ic[mt.primary])}<span>${esc(label[mt.primary])}</span></button>
-    <div class="btn-row" style="margin-top:10px">${mt.others.map(m => `<button class="btn ghost sm" data-act="send" data-m="${m}" ${ok ? '' : 'disabled'}>${svg(ic[m])}${esc(alt[m])}</button>`).join('')}</div></div>`;
+    <div class="btn-row" style="margin-top:10px">${mt.others.map(m => `<button class="btn ghost sm" data-act="send" data-m="${m}" ${ok ? '' : 'disabled'}>${svg(ic[m])}${esc(alt[m])}</button>`).join('')}</div>
+    ${mt.primary === 'share' ? `<p class="hint" style="text-align:center;margin-top:10px">${esc(t('shareHint'))}</p>` : ''}</div>`;
   }
   const done = sentL.length ? `${sec(t('sentSec'))}<div class="card">${sentL.map(expRow).join('')}</div>
     <p class="hint" style="margin:10px 2px 14px">${esc(t('expensedHint'))}</p>
@@ -452,6 +473,15 @@ function historyHtml() {
 function pageSettings() {
   const first = !profileOK();
   const companies = [...new Set([...(CFG.companies || []), ...st.expenses.map(e => e.company).filter(Boolean)])];
+  const needVerify = !!CFG.relayUrl && isEmail(settings.sendTo) && !domOK(settings.sendTo) && !sendToLocked();
+  const verifyBlock = !needVerify ? '' : sameAddr(settings.verifiedTo, settings.sendTo)
+    ? `<div class="notice"><b>✓</b> ${esc(t('verifiedMsg'))}</div>`
+    : (ui.verifyAddr && sameAddr(ui.verifyAddr, settings.sendTo)
+      ? `<div class="notice">${esc(t('codeSent', settings.sendTo))}<div class="fr" style="margin-top:12px"><input class="fi num" id="v-code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="123456"><button class="btn sm" data-act="verify-check">${esc(t('codeOk'))}</button></div><button class="muted small" style="text-decoration:underline;margin-top:10px" data-act="verify-start">${esc(t('resend'))}</button></div>`
+      : `<div class="notice">${esc(t('verifyNeed'))}<button class="btn sm" style="margin-top:12px" data-act="verify-start">${esc(t('verifyBtn'))}</button></div>`);
+  const apps = CFG.approvers || [], known = apps.find(a => a.name === settings.approver);
+  const showManual = !apps.length || !!(settings.approver && !known);
+  const approverPick = apps.length ? `<div class="fg"><label class="fl" for="s-approverPick">${esc(t('approver'))}</label><select class="fi" id="s-approverPick"><option value="">${esc(t('chooseApprover'))}</option>${apps.map(a => `<option value="${esc(a.name)}" ${known && known.name === a.name ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}<option value="__other" ${settings.approver && !known ? 'selected' : ''}>${esc(t('otherApprover'))}</option></select></div>` : '';
   const f = (id, label, val, extra = '') => `<div class="fg"><label class="fl" for="s-${id}">${esc(label)}</label><input class="fi" id="s-${id}" value="${esc(val)}" ${extra}></div>`;
   return `<div class="page">
     ${first ? `<div class="h-xl" style="margin:6px 0 8px">${esc(t('welcomeT'))}</div><p class="muted" style="margin-bottom:6px">${esc(t('welcomeS'))}</p>` : ''}
@@ -459,12 +489,16 @@ function pageSettings() {
     ${f('name', t('fullName'), settings.name, 'autocomplete="name"')}
     <div class="fg"><label class="fl" for="s-company">${esc(t('defCompany'))}</label><input class="fi" id="s-company" list="dl-co" value="${esc(settings.company)}"><datalist id="dl-co">${companies.map(c => `<option value="${esc(c)}">`).join('')}</datalist></div>
     <div class="sec"><b>02</b> ${esc(t('sec_approval'))}</div>
+    ${approverPick}
+    <div id="approver-manual" ${showManual ? '' : 'hidden'}>
     ${f('approver', t('approver'), settings.approver)}
-    ${f('approverEmail', t('approverEmail'), settings.approverEmail, 'type="email" inputmode="email" autocapitalize="off"')}
+    ${f('approverEmail', t('approverEmail'), settings.approverEmail, 'type="text" inputmode="email" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="nombre@commmediagroup.com"')}
+    </div>
     <label class="check"><input type="checkbox" id="s-ccApprover" ${settings.ccApprover ? 'checked' : ''}><span>${esc(t('ccApprover'))}</span></label>
     <div class="sec"><b>03</b> ${esc(t('sec_delivery'))}</div>
-    <div class="fg"><label class="fl" for="s-sendTo">${esc(t('sendTo'))}</label><input class="fi" id="s-sendTo" type="email" inputmode="email" autocapitalize="off" value="${esc(settings.sendTo)}"><div class="hint">${esc(t('sendToHint'))}</div></div>
-    <div class="fg"><label class="fl" for="s-personalEmail">${esc(t('personal'))}</label><input class="fi" id="s-personalEmail" type="email" inputmode="email" autocapitalize="off" autocomplete="email" value="${esc(settings.personalEmail)}"><div class="hint">${esc(t('personalHint'))}</div></div>
+    ${sendToLocked() ? `<div class="fg"><label class="fl">${esc(t('sendTo'))}</label><div class="fi" style="opacity:.75">${esc(CFG.defaultSendTo)}</div></div>` : `<div class="fg"><label class="fl" for="s-sendTo">${esc(t('sendTo'))}</label><input class="fi" id="s-sendTo" type="text" inputmode="email" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="nombre@commmediagroup.com" value="${esc(settings.sendTo)}"><div class="hint">${esc(t('sendToHint'))}</div></div>`}
+    ${verifyBlock}
+    <div class="fg"><label class="fl" for="s-personalEmail">${esc(t(CFG.relayUrl ? 'personalR' : 'personal'))}</label><input class="fi" id="s-personalEmail" type="email" inputmode="email" autocapitalize="off" autocomplete="email" value="${esc(settings.personalEmail)}"><div class="hint">${esc(t(CFG.relayUrl ? 'personalHintR' : 'personalHint'))}</div></div>
     <button class="btn" data-act="save-settings">${esc(t('saveSettings'))}</button>
     <div class="sec"><b>04</b> ${esc(t('sec_app'))}</div>
     <div class="fl">${esc(t('language'))}</div>
@@ -725,6 +759,15 @@ function markSent(pkg, method) {
   persist(); render();
 }
 
+async function downloadAndMail(pkg, atts, cc) {
+  atts.forEach((a, i) => setTimeout(() => CmgMail.download(a.blob, a.name), i * 400));
+  toast(t('downloaded'));
+  setTimeout(() => {
+    location.href = 'mailto:' + encodeURIComponent(settings.sendTo.trim()).replace('%40', '@') + '?subject=' + encodeURIComponent(pkg.subject) + (cc ? '&cc=' + encodeURIComponent(cc) : '') + '&body=' + encodeURIComponent(pkg.body);
+  }, 1200);
+  setTimeout(() => { if (confirm(t('sentAsk'))) { markSent(pkg, 'download'); toast(t('markedSent')); } }, 6000);
+}
+
 async function doSend(method) {
   if (ui.busy || !ui.report) return;
   const r = rep(ui.report), sel = selected(r.id);
@@ -736,11 +779,24 @@ async function doSend(method) {
   try {
     const key = pkgKey();
     let pkg = ui.pkg && ui.pkg.key === key ? (ui.pkg.value || null) : null;
-    if (!pkg) { busy(t('building')); pkg = ui.pkg && ui.pkg.key === key ? await ui.pkg.promise : await buildPackage(sel, r); }
+    if (!pkg) {
+      busy(t('building')); pkg = ui.pkg && ui.pkg.key === key ? await ui.pkg.promise : await buildPackage(sel, r);
+      if (method === 'share') { toast(t('readyTapAgain')); return; } // the share sheet only opens straight from a tap
+    }
     const cc = settings.ccApprover && isEmail(settings.approverEmail) ? settings.approverEmail.trim() : '';
     const atts = [{ name: pkg.xlsxName, type: XLSX_MIME, blob: pkg.xlsxBlob }].concat(pkg.zipBlob ? [{ name: pkg.zipName, type: 'application/zip', blob: pkg.zipBlob }] : []);
 
-    if (method === 'gmail') {
+    if (method === 'relay') {
+      busy(t('sending'));
+      if (atts.reduce((n, a) => n + a.blob.size, 0) > 15 * 1024 * 1024) throw Object.assign(new Error(t('tooBig')), { soft: true });
+      const attachments = [];
+      for (const a of atts) attachments.push({ name: a.name, type: a.type, b64: await CmgMail.blobToB64(a.blob) });
+      pkg.sendId = pkg.sendId || ('s' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8));   // lets the relay ignore an accidental double send
+      await CmgMail.relaySend({ url: CFG.relayUrl, key: CFG.relayKey, payload: {
+        id: pkg.sendId, to: settings.sendTo.trim(), cc: cc && domOK(cc) ? cc : '', replyTo: isEmail(settings.personalEmail) ? settings.personalEmail.trim() : '',
+        employee: settings.name.trim(), subject: pkg.subject, body: pkg.body, attachments } });
+      markSent(pkg, 'relay'); toast(t('sentOk'));
+    } else if (method === 'gmail') {
       busy(t('sending'));
       let token;
       try { token = await CmgMail.getToken(CFG.googleClientId, settings.personalEmail.trim()); }
@@ -750,21 +806,24 @@ async function doSend(method) {
       await CmgMail.gmailSend(token, mime);
       markSent(pkg, 'gmail'); toast(t('sentOk'));
     } else if (method === 'share') {
-      try { await navigator.clipboard.writeText(settings.sendTo.trim()); toast(t('recCopied')); } catch (e) { }
       const files = atts.map(a => new File([a.blob], a.name, { type: a.type }));
-      const done = await CmgMail.shareFiles({ files, title: pkg.subject, text: pkg.body });
-      if (done && confirm(t('sentAsk'))) { markSent(pkg, 'share'); toast(t('markedSent')); }
+      try {
+        const sharing = CmgMail.shareFiles({ files, title: pkg.subject, text: pkg.body });   // called synchronously from the tap
+        try { navigator.clipboard.writeText(settings.sendTo.trim()).then(() => toast(t('recCopied')), () => { }); } catch (e) { }
+        const done = await sharing;
+        if (done && confirm(t('sentAsk'))) { markSent(pkg, 'share'); toast(t('markedSent')); }
+      } catch (e) {
+        console.warn('share failed, falling back to download', e);
+        toast(t('shareFailed'), true);
+        await downloadAndMail(pkg, atts, cc);
+      }
     } else {
-      atts.forEach((a, i) => setTimeout(() => CmgMail.download(a.blob, a.name), i * 400));
-      toast(t('downloaded'));
-      setTimeout(() => {
-        location.href = 'mailto:' + encodeURIComponent(settings.sendTo.trim()).replace('%40', '@') + '?subject=' + encodeURIComponent(pkg.subject) + (cc ? '&cc=' + encodeURIComponent(cc) : '') + '&body=' + encodeURIComponent(pkg.body);
-      }, 1200);
-      setTimeout(() => { if (confirm(t('sentAsk'))) { markSent(pkg, 'download'); toast(t('markedSent')); } }, 6000);
+      await downloadAndMail(pkg, atts, cc);
     }
   } catch (e) {
     console.error(e);
-    toast(e && e.soft ? e.message : (method === 'gmail' ? t('gErr') : '') + (e && e.message || e), true);
+    const net = e && (e.name === 'TypeError' || e.name === 'AbortError');
+    toast(e && e.soft ? e.message : method === 'relay' ? (net ? t('relayOffline') : t('relayErr') + (e && e.message || e)) : (method === 'gmail' ? t('gErr') : '') + (e && e.message || e), true);
   } finally {
     ui.busy = false;
     if (ui.page === 'reports') { if (main && main.isConnected) main.innerHTML = orig; btns.forEach(b => b.disabled = false); }
@@ -834,14 +893,62 @@ async function consumeShared() {
 /* ───────────── settings ───────────── */
 function saveSettings() {
   const v = id => $('#s-' + id).value.trim();
-  const next = { name: v('name'), company: v('company'), approver: v('approver'), approverEmail: v('approverEmail'), ccApprover: $('#s-ccApprover').checked, sendTo: v('sendTo'), personalEmail: v('personalEmail') };
+  const next = { name: v('name'), company: v('company'), approver: v('approver'), approverEmail: v('approverEmail'), ccApprover: $('#s-ccApprover').checked, sendTo: sendToLocked() ? CFG.defaultSendTo.trim() : v('sendTo'), personalEmail: v('personalEmail') };
   const bad = { name: !next.name, approver: !next.approver, sendTo: !isEmail(next.sendTo), approverEmail: !!next.approverEmail && !isEmail(next.approverEmail), personalEmail: !!next.personalEmail && !isEmail(next.personalEmail) };
-  Object.entries(bad).forEach(([k, b]) => $('#s-' + k).classList.toggle('bad', b));
+  Object.entries(bad).forEach(([k, b]) => { const el = $('#s-' + k); if (el) el.classList.toggle('bad', b); });
+  if (bad.approver && $('#s-approverPick')) $('#s-approverPick').classList.add('bad');
   if (Object.values(bad).some(Boolean)) return toast(t('fixFields'), true);
   const was = profileOK();
   Object.assign(settings, next); saveSettingsLS(); toast(t('settingsSaved'));
-  if (!was) go('home');
+  if (!was) go('home'); else render();
 }
+
+/* ───────────── verify a personal destination address (one time) ───────────── */
+const relayCall = payload => CmgMail.relaySend({ url: CFG.relayUrl, key: CFG.relayKey, payload });
+const relayMsg = e => {
+  const m = String(e && e.message || e);
+  return /wrong code/.test(m) ? t('wrongCode') : /expired/.test(m) ? t('codeExpired') : /too many|rate limit/.test(m) ? t('codeTooMany')
+    : (e && (e.name === 'TypeError' || e.name === 'AbortError')) ? t('relayOffline') : t('relayErr') + m;
+};
+async function verifyStart() {
+  const inp = $('#s-sendTo');                       // use what is typed, even if not saved yet
+  if (inp && isEmail(inp.value) && !sameAddr(inp.value, settings.sendTo)) { settings.sendTo = inp.value.trim(); saveSettingsLS(); }
+  const a = settings.sendTo.trim();
+  try {
+    toast(t('sending'));
+    const j = await relayCall({ action: 'verify-start', address: a });
+    if (j.alreadyAllowed) { settings.verifiedTo = a; saveSettingsLS(); render(); return toast(t('verifiedOk')); }
+    ui.verifyAddr = a; render(); toast(t('codeSent', a));
+  } catch (e) { toast(relayMsg(e), true); }
+}
+async function verifyCheck() {
+  const code = String(($('#v-code') || {}).value || '').trim();
+  if (!/^\d{6}$/.test(code)) return toast(t('wrongCode'), true);
+  try {
+    await relayCall({ action: 'verify-check', address: settings.sendTo.trim(), code });
+    settings.verifiedTo = settings.sendTo.trim(); saveSettingsLS(); ui.verifyAddr = null; render(); toast(t('verifiedOk'));
+  } catch (e) { toast(relayMsg(e), true); }
+}
+
+/* company e-mail fields: tapping an empty field fills in "@domain" and parks the caret before it, so people only type the name part */
+const MAIL_FIELDS = ['s-sendTo', 's-approverEmail'];
+const mailSuffix = () => '@' + String((CFG.relayDomains && CFG.relayDomains[0]) || 'commmediagroup.com').toLowerCase();
+document.addEventListener('focusin', ev => {
+  const el = ev.target;
+  if (!MAIL_FIELDS.includes(el.id) || el.value) return;
+  el.value = mailSuffix();
+  const put = () => { try { el.setSelectionRange(0, 0); } catch (e) { } };
+  put(); setTimeout(put, 0); requestAnimationFrame(put);
+});
+document.addEventListener('focusout', ev => {            // nothing typed → leave the field empty again
+  const el = ev.target;
+  if (MAIL_FIELDS.includes(el.id) && el.value.trim().toLowerCase() === mailSuffix()) el.value = '';
+});
+document.addEventListener('input', ev => {                // typed a full address (e.g. a Gmail)? drop the pre-filled ending
+  const el = ev.target; if (!MAIL_FIELDS.includes(el.id)) return;
+  const suf = mailSuffix(), v = el.value;
+  if (v.toLowerCase().endsWith(suf) && v.slice(0, -suf.length).includes('@')) { el.value = v.slice(0, -suf.length); try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) { } }
+});
 
 /* ───────────── events ───────────── */
 document.addEventListener('click', async ev => {
@@ -902,6 +1009,8 @@ document.addEventListener('click', async ev => {
     case 'quick-file': return $('#in-qfile').click();
     case 'backup': return makeBackup();
     case 'restore': return $('#in-restore').click();
+    case 'verify-start': return verifyStart();
+    case 'verify-check': return verifyCheck();
     case 'refresh': toast(t('checking')); return forceRefresh();
     case 'bk-later': flags.bkSnooze = Date.now() + 7 * 864e5; lsSet(LS_FLAGS, flags); return render();
     case 'unsend': if (d && d.id) { const e = exp(d.id); e.status = 'pending'; e.sentAt = null; e.batch = null; persist(); closeAdd(); render(); } return;
@@ -923,6 +1032,13 @@ document.addEventListener('change', ev => {
   if (fid === 'in-cam' || fid === 'in-file') { const fl = [...ev.target.files]; ev.target.value = ''; onPicked(fl); }
   if (fid === 'in-qcam' || fid === 'in-qfile') { const fl = [...ev.target.files]; ev.target.value = ''; quickDrafts(fl); }
   if (fid === 'in-restore') { const f = ev.target.files[0]; ev.target.value = ''; restoreBackup(f); }
+  if (ev.target.id === 's-approverPick') {
+    const v = ev.target.value, a = (CFG.approvers || []).find(x => x.name === v), man = $('#approver-manual');
+    ev.target.classList.remove('bad');
+    if (a) { $('#s-approver').value = a.name; $('#s-approverEmail').value = a.email || ''; $('#s-ccApprover').checked = isEmail(a.email); man.hidden = true; }
+    else if (v === '__other') { $('#s-approver').value = ''; $('#s-approverEmail').value = ''; man.hidden = false; }
+    else { $('#s-approver').value = ''; $('#s-approverEmail').value = ''; man.hidden = true; }
+  }
   if (ev.target.dataset && ev.target.dataset.pick === 'to') ui.moveTo = ev.target.value;
   if (ev.target.dataset && ev.target.dataset.f === 'report' && ui.draft) ui.draft.report = ev.target.value;
 });
