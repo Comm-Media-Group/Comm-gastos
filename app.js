@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const CFG = window.CMG_CONFIG || {};
-const VERSION = '1.8.0';
+const VERSION = '1.9.0';
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -23,6 +23,11 @@ const TXT = {
     chooseApprover: 'Elige a tu responsable…', otherApprover: 'Otro (escribir)',
     shareHint: 'Se abre tu app de correo con el Excel y el ZIP adjuntos. El destinatario ya está copiado: pégalo en «Para».',
     readyTapAgain: 'Archivos listos: toca otra vez para enviar', shareFailed: 'Este teléfono no permitió compartir los archivos; se descargan para adjuntarlos',
+    tapToEdit: 'Toca un gasto para corregirlo o añadirle una foto.', reopen: 'Reabrir informe para corregirlo', reopenedTag: 'Reabierto', reopened: 'Informe reabierto: corrige lo que haga falta y vuelve a enviarlo',
+    reopenHint: 'Si te piden un cambio (falta una foto, un importe…): reabre el informe, corrígelo y envíalo completo otra vez. El correo anterior no se borra; el nuevo llegará marcado como «Corregido».',
+    reopenAsk: n => '¿Reabrir este informe? Sus ' + n + (n === 1 ? ' gasto enviado vuelve' : ' gastos enviados vuelven') + ' a «pendiente» para que puedas corregirlos. Después lo envías completo otra vez.',
+    newPendingHint: 'Hay gastos nuevos sin enviar. Para mandar todo junto en un solo correo, reabre el informe.',
+    batchReopened: d => 'Este envío se reabrió para corregirlo el ' + d + '.',
     sentBadge: 'Enviado', sentOn: (d, to, n, tot) => 'El ' + d + ' a ' + to + ' · ' + n + (n === 1 ? ' gasto' : ' gastos') + ' · ' + tot, resend: 'Enviar de nuevo', resendTag: 'reenvío',
     resendHint: 'Si no llegó, o quieres volver a mandarlo, pulsa «Enviar de nuevo»: se envía el informe completo con todos los gastos enviados. Cuando ya te hayan pagado, pulsa «Reembolsado».',
     resentOk: 'Reenviado correctamente ✓', sendFailed: 'No se pudo enviar (detalles abajo)', confirming: 'Confirmando…',
@@ -100,6 +105,11 @@ const TXT = {
     chooseApprover: 'Choose your approver…', otherApprover: 'Other (type)',
     shareHint: 'Your mail app opens with the Excel and ZIP attached. The recipient is already copied: paste it into “To”.',
     readyTapAgain: 'Files ready: tap again to send', shareFailed: 'This phone refused to share the files; downloading them to attach instead',
+    tapToEdit: 'Tap an expense to correct it or add a photo.', reopen: 'Reopen report to correct it', reopenedTag: 'Reopened', reopened: 'Report reopened: fix what is needed and send it again',
+    reopenHint: 'If you are asked for a change (a missing photo, an amount…): reopen the report, fix it and send the complete report again. The earlier email is not deleted; the new one arrives marked “Corregido”.',
+    reopenAsk: n => 'Reopen this report? Its ' + n + (n === 1 ? ' sent expense goes' : ' sent expenses go') + ' back to “pending” so you can correct them. Then you send the complete report again.',
+    newPendingHint: 'There are new expenses not sent yet. To send everything together in one email, reopen the report.',
+    batchReopened: d => 'This send was reopened for correction on ' + d + '.',
     sentBadge: 'Sent', sentOn: (d, to, n, tot) => 'On ' + d + ' to ' + to + ' · ' + n + (n === 1 ? ' expense' : ' expenses') + ' · ' + tot, resend: 'Send again', resendTag: 'resent',
     resendHint: 'If it did not arrive, or you want to send it again, tap “Send again”: the full report with all sent expenses goes out again. Once it has been paid, tap “Reimbursed”.',
     resentOk: 'Sent again ✓', sendFailed: 'Could not send (details below)', confirming: 'Confirming…',
@@ -470,9 +480,10 @@ function pageReport(id) {
     <div class="chips">${months.map(x => { const { y, m } = ymd(x.k + '-01'); return `<button class="chip ${sm.has(x.k) ? 'on' : ''}" data-act="month" data-v="${x.k}">${esc(monthName(y, m))} · ${x.n}</button>`; }).join('')}</div>
     ${sec(t('sec_content'))}
     <div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>${esc(t('dateC'))}</th><th>${esc(t('conceptC'))}</th><th class="r">€</th></tr></thead><tbody>
-      ${sel.map(e => `<tr><td class="num">${esc(dShort(e.date))}</td><td>${esc(e.concept || catLabel(e.cat))}<div class="muted small">${esc(catLabel(e.cat))}${nFiles(e) ? '' : ' · ' + esc(t('noRec'))}</div></td><td class="r num">${eur(e.amount)}</td></tr>`).join('')}
+      ${sel.map(e => `<tr data-act="edit" data-id="${e.id}" style="cursor:pointer"><td class="num">${esc(dShort(e.date))}</td><td>${esc(e.concept || catLabel(e.cat))}<div class="muted small">${esc(catLabel(e.cat))}${nFiles(e) ? '' : ' · ' + esc(t('noRec'))}</div></td><td class="r num">${eur(e.amount)}</td></tr>`).join('')}
     </tbody><tfoot><tr><td colspan="2">${esc(t('total'))}</td><td class="r num">${eur(total)}</td></tr></tfoot></table></div></div>
-    <p class="hint" style="margin:10px 2px 0">${esc(t('attach', nRec, mb(size)))}${noRec ? ' · <span style="color:var(--warn)">' + esc(t('withoutRec', noRec)) + '</span>' : ''}</p>
+    <p class="hint" style="margin:10px 2px 0">${esc(t('tapToEdit'))}</p>
+    <p class="hint" style="margin:4px 2px 0">${esc(t('attach', nRec, mb(size)))}${noRec ? ' · <span style="color:var(--warn)">' + esc(t('withoutRec', noRec)) + '</span>' : ''}</p>
     <div style="margin-top:22px"><button class="btn" id="send-main" data-act="send" data-mode="pending" data-m="${mt.primary}" ${ok ? '' : 'disabled'}>${svg(ic[mt.primary])}<span>${esc(label[mt.primary])}</span></button>
     <div class="btn-row" style="margin-top:10px">${mt.others.map(m => `<button class="btn ghost sm" data-act="send" data-m="${m}" ${ok ? '' : 'disabled'}>${svg(ic[m])}${esc(alt[m])}</button>`).join('')}</div>
     ${mt.primary === 'share' ? `<p class="hint" style="text-align:center;margin-top:10px">${esc(t('shareHint'))}</p>` : ''}
@@ -493,6 +504,9 @@ function pageReport(id) {
     <div class="card">${sentL.map(expRow).join('')}</div>
     <div style="margin-top:16px">${sendBtns('resend', 'resend-main', !!profileOK(), t('resend'))}</div>
     <p class="hint" style="margin:10px 2px 18px">${esc(t('resendHint'))}</p>
+    ${pend.length ? `<div class="notice" style="margin-bottom:14px">${esc(t('newPendingHint'))}</div>` : ''}
+    <button class="btn ghost" data-act="reopen">${svg('<path d="M3 12a9 9 0 109-9 9 9 0 00-6.4 2.6L3 8M3 3v5h5"/>')}<span>${esc(t('reopen'))}</span></button>
+    <p class="hint" style="margin:10px 2px 18px">${esc(t('reopenHint'))}</p>
     <p class="hint" style="margin:0 2px 14px">${esc(t('expensedHint'))}</p>
     <button class="btn ghost" data-act="expensed">${svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>')}<span>${esc(t('expensed'))}</span></button>` : '';
   const errBox = ui.sendError ? `<div class="notice warn" style="margin-top:16px">${esc(ui.sendError.msg)}${ui.sendError.detail ? `<div class="small" style="margin-top:8px;opacity:.85;overflow-wrap:anywhere">${esc(ui.sendError.detail)}</div>` : ''}</div>` : '';
@@ -503,7 +517,7 @@ function pageReport(id) {
 function historyHtml() {
   if (!st.batches.length) return '';
   return `<div class="sec"><b>02</b> ${esc(t('history'))}</div><div class="card">${[...st.batches].reverse().slice(0, 15).map(b =>
-    `<button class="row" data-act="open-batch" data-id="${esc(b.id)}"><span class="ico">${svg(UI_ICON.mail)}</span><span class="row-main"><span class="row-t" style="display:block">${esc((b.reportName && !b.reportName.toLowerCase().includes(b.period.toLowerCase()) ? b.reportName + ' · ' + b.period : (b.reportName || b.period)) + (b.resend ? ' · ' + t('resendTag') : ''))}</span><span class="row-s" style="display:block">${esc(t('hist', new Date(b.at).toLocaleDateString(settings.lang === 'en' ? 'en-GB' : 'es-ES'), b.count, eur(b.total)))}</span></span>${b.expensedAt ? `<span class="tag ok">${esc(t('reimbursed'))}</span>` : '<span class="muted">›</span>'}</button>`).join('')}</div>`;
+    `<button class="row" data-act="open-batch" data-id="${esc(b.id)}"><span class="ico">${svg(UI_ICON.mail)}</span><span class="row-main"><span class="row-t" style="display:block">${esc((b.reportName && !b.reportName.toLowerCase().includes(b.period.toLowerCase()) ? b.reportName + ' · ' + b.period : (b.reportName || b.period)) + (b.resend ? ' · ' + t('resendTag') : ''))}</span><span class="row-s" style="display:block">${esc(t('hist', new Date(b.at).toLocaleDateString(settings.lang === 'en' ? 'en-GB' : 'es-ES'), b.count, eur(b.total)))}</span></span>${b.expensedAt ? `<span class="tag ok">${esc(t('reimbursed'))}</span>` : (b.reopenedAt ? `<span class="tag warn">${esc(t('reopenedTag'))}</span>` : '<span class="muted">›</span>')}</button>`).join('')}</div>`;
 }
 
 function pageSettings() {
@@ -688,6 +702,7 @@ function openBatch(id) {
       <dt>${esc(t('to'))}</dt><dd>${esc(b.to || '—')}</dd>
       <dt>${esc(t('method'))}</dt><dd>${esc(methodLbl)}</dd>
       <dt>${esc(t('total'))}</dt><dd>${esc(eur(b.total))} · ${b.count} ${esc(t('nExp').toLowerCase())}</dd></dl>
+    ${b.reopenedAt && !b.expensedAt ? `<div class="notice warn" style="margin-bottom:12px">${esc(t('batchReopened', new Date(b.reopenedAt).toLocaleDateString(settings.lang === 'en' ? 'en-GB' : 'es-ES')))}</div>` : ''}
     ${exps.length ? `<div class="card">${exps.map(expRow).join('')}</div>` : `<div class="notice">${esc(b.expensedAt ? t('batchReimbursed') : t('batchGone'))}</div>`}`;
   $('#batch-foot').innerHTML = rp ? `<button class="btn" data-act="batch-open" data-id="${esc(rp.id)}">${esc(t('openReport'))}</button>` : `<button class="btn ghost" data-act="close-batch">${esc(t('close'))}</button>`;
   $('#ov-batch').classList.add('open'); $('#sh-batch').classList.add('open'); $('#batch-body').scrollTop = 0;
@@ -790,8 +805,8 @@ async function buildPackage(sel, r, resend) {
   return {
     xlsxBlob, zipBlob, xlsxName: `Hoja_de_gastos_${who}_${[repTag, dup ? '' : fileTag].filter(Boolean).join('_')}.xlsx`, zipName: `Justificantes_${who}_${[repTag, dup ? '' : fileTag].filter(Boolean).join('_')}.zip`,
     period, total, count: sel.length, receipts: n, ids: sel.map(e => e.id), report: r.id, reportName: repEs,
-    subject: (resend ? 'Reenvío: ' : '') + TXT.es.mailSubject(dup ? '' : period, nameEs, repEs),
-    body: (resend ? 'REENVÍO: este informe ya se envió anteriormente.\n\n' : '') + TXT.es.mailBody({ name: nameEs, per: period, report: repEs, n: sel.length, total: new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(total), rec: n, approver: settings.approver.trim() })
+    subject: (resend ? 'Reenvío: ' : (sel.some(e => e.reopenedAt) ? 'Corregido: ' : '')) + TXT.es.mailSubject(dup ? '' : period, nameEs, repEs),
+    body: (resend ? 'REENVÍO: este informe ya se envió anteriormente.\n\n' : (sel.some(e => e.reopenedAt) ? 'CORRECCIÓN: este informe sustituye al que se envió anteriormente.\n\n' : '')) + TXT.es.mailBody({ name: nameEs, per: period, report: repEs, n: sel.length, total: new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(total), rec: n, approver: settings.approver.trim() })
   };
 }
 
@@ -818,7 +833,7 @@ function warmRelay() { if (!CFG.relayUrl || Date.now() - lastPing < 240000) retu
 
 function markSent(pkg, method) {
   const at = Date.now(), bid = 'b' + at;
-  st.expenses.forEach(e => { if (pkg.ids.includes(e.id)) { e.status = 'sent'; e.sentAt = at; e.batch = bid; } });
+  st.expenses.forEach(e => { if (pkg.ids.includes(e.id)) { e.status = 'sent'; e.sentAt = at; e.batch = bid; delete e.reopenedAt; } });
   st.batches.push({ id: bid, at, report: pkg.report, reportName: pkg.reportName, period: pkg.period, count: pkg.count, total: pkg.total, method, to: settings.sendTo });
   persist(); render();
 }
@@ -827,6 +842,14 @@ function markSentManual() {   // "it already went out" (for example the confirma
   if (!sel.length || !confirm(t('markManualAsk'))) return;
   markSent({ ids: sel.map(e => e.id), report: rp.id, reportName: rp.general ? '' : rp.name, period: periodLabel(sel, monthNameEs), count: sel.length, total: r2(sel.reduce((a, e) => a + e.amount, 0)) }, 'manual');
   toast(t('markedSent'));
+}
+function reopenReport() {   // sent -> pending again, so a correction goes out as ONE complete report
+  const rp = rep(ui.report), sent = sentOf(rp.id);
+  if (!sent.length || !confirm(t('reopenAsk', sent.length))) return;
+  const at = Date.now();
+  sent.forEach(e => { e.status = 'pending'; e.sentAt = null; e.reopenedAt = at; });   // e.batch stays, so the old send's details remain viewable
+  st.batches.forEach(b => { if (b.report === rp.id && !b.expensedAt && !b.resend) b.reopenedAt = at; });
+  ui.monthsOff = new Set(); persist(); render(); toast(t('reopened'));
 }
 function logResend(pkg, method) {   // already-sent expenses stay "Enviado"; we only record that it went out again
   const at = Date.now();
@@ -1064,6 +1087,7 @@ document.addEventListener('click', async ev => {
     case 'rep': ui.rep = el.dataset.v; return render();
     case 'month': { const k = el.dataset.v; ui.monthsOff.has(k) ? ui.monthsOff.delete(k) : ui.monthsOff.add(k); return render(); }
     case 'mark-sent': return markSentManual();
+    case 'reopen': return reopenReport();
     case 'open-batch': return openBatch(el.dataset.id);
     case 'close-batch': return closeBatch();
     case 'batch-open': closeBatch(); return openReportPage(el.dataset.id);
